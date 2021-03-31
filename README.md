@@ -2,7 +2,8 @@
 This repository contains the OntoTrans WP3 development.
 
 # Stardog Installation and Possible Deployments
-For the scope of OntoTrans Core components, we explore two deployment alternatives for the Stardog Triplestore, i.e. either as a Docker-containerised instance or as an instance running on a Virtual Machine (VM) – obviously, it may be installed in a server of its own without any virtualization layer as well. In this phase, these two deployments can be considered equivalent; probably the dockerized one may be preferable for someone that would like to quickly experiment with Stardog (e.g., in Windows OS) without having to directly use a Linux-based OS or having to deal with VMs, since from release 7.0 Stardog does not natively run on Windows OS. 
+For the scope of OntoTrans Core components, we explore two deployment alternatives for the Stardog Triplestore, i.e. either as a Docker-containerised instance or as an instance running on a Virtual Machine (VM).
+In this phase, these two deployments can be considered equivalent; probably the dockerized one may be preferable for someone that would like to quickly experiment with Stardog (e.g., in Windows OS) without having to directly use a Linux-based OS or having to deal with VMs.
 Here, we briefly detail the installation of Stardog inside a Docker container and inside a VM. 
 
 ## Dockerized Stardog in Windows
