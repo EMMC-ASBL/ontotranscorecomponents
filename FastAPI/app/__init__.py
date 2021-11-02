@@ -2,8 +2,8 @@
 app init
 """
 from fastapi import FastAPI
-from app.dummyapp.test import router
-from app.dummyapp import test
+from app.ontotrans_api.core import router
+from app.ontotrans_api import core
 
 
 def create_app():
