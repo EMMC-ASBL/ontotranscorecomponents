@@ -219,3 +219,5 @@ Thumbs.db
 
 ### Logic ###
 /tmp
+/reasoner/files
+/reasoner/log
