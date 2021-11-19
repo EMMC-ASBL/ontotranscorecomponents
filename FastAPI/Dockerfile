@@ -5,6 +5,11 @@ FROM python:3.8.3-slim-buster as base
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
+# Set up system and install openjdk 11
+RUN mkdir /usr/share/man/man1/ \
+    && apt update \
+    && apt install openjdk-11-jdk -y
+
 # Set working directory
 WORKDIR /app
 
@@ -22,9 +27,9 @@ COPY . .
 
 # Run static security check and linters
 RUN bandit -r app \
-  && safety check -r requirements.txt --bare \ 
+  && safety check -r requirements.txt --bare  
   # && pylint app \
-  && mypy app 
+  # && mypy app 
 
 # Run pytest with code coverage
 RUN pytest --cov app tests/
