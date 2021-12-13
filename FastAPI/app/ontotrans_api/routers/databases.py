@@ -2,6 +2,7 @@
     Router for operations with databases
 """
 
+import os
 import shutil
 import stardog # type: ignore
 
@@ -15,7 +16,9 @@ from stardog.exceptions import StardogException # type: ignore
 
 from ..core import connection_details
 
-router = APIRouter()
+router = APIRouter(
+    tags = ["databases"]
+)
 
 @router.get("/databases", status_code = status.HTTP_200_OK)
 async def get_databases():
