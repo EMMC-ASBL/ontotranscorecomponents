@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, UploadFile
 router = APIRouter()
 
 connection_details = {
-    'endpoint': 'http://172.17.0.2:5820',
+    'endpoint': 'http://stardog:5820',
     'username': 'admin',
     'password': 'admin'
 }
