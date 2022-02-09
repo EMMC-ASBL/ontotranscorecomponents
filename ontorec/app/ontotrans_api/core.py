@@ -2,8 +2,6 @@
     Home router
 """
 
-from fastapi import APIRouter, File, UploadFile
-
 router = APIRouter()
 
 connection_details = {
@@ -17,4 +15,4 @@ async def home():
     """
     Home endpoint
     """
-    return {"msg": "OntoTrans FastAPI v0.1"}
+    return {"msg": "OntoREC v0.1"}
