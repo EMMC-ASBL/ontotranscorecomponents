@@ -1,27 +1,16 @@
 services:
   stardog:
     image: "stardog/stardog"
-    container_name: stardog-compose
+    container_name: stardog-service
     ports:
       - "5820:5820"
     volumes:
-      - <PATH TO LOCAL STARDOG HOME>:/var/opt/stardog
-
-  # DEVELOPMENT
-  # ontotranscore-api:
-  #   image: "ontotrans/fastservice-development:latest"
-  #   volumes:
-  #     - <PATH TO DEVELOP FOLDER>:/app
-  #   container_name: otcore-api
-  #   depends_on:
-  #      - stardog
-  #   ports:
-  #     - "8080:8080"
+      - <LICENSE FOLDER>:/var/opt/stardog
 
   # PRODUCTION
-  ontotranscore-api:
-    image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/fastapi"
-    container_name: otcore-api
+  ontorec:
+    image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec"
+    container_name: ontorec-service
     depends_on:
        - stardog
     ports:
