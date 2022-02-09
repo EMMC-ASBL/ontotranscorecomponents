@@ -12,15 +12,26 @@ from fastapi.params import Body
 from fastapi import File, UploadFile, Response
 from fastapi import APIRouter, HTTPException, status
 
+from pydantic import BaseModel
+
 from stardog.exceptions import StardogException # type: ignore
 
 from ..core import connection_details
 
 router = APIRouter(
-    tags = ["databases"]
+    tags = ["Databases"]
 )
 
-@router.get("/databases", status_code = status.HTTP_200_OK)
+#
+# GET /databases
+#
+
+### Model
+class Databases(BaseModel):
+    dbs: List[str] = []
+
+### Route
+@router.get("/databases", response_model=Databases, status_code = status.HTTP_200_OK)
 async def get_databases():
     """
         Retrieve the list of databases
@@ -36,19 +47,29 @@ async def get_databases():
         print("Exception occurred in /databases: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return databases
+    return Databases(dbs = databases)
 
-@router.get("/databases/{db_name}", status_code = status.HTTP_200_OK)
+#
+#   GET /databases/{db_name}
+#
+
+### Model
+class OntologyData(BaseModel):
+    head: dict = {}
+    results: dict = {}
+
+### Route
+@router.get("/databases/{db_name}", response_model=OntologyData, status_code = status.HTTP_200_OK, responses={404: {}, 500: {}})
 async def get_database_data(db_name: str):
     """
         Retrieve all data from a specific database
     """
-    myres = ""
+    ontology_data = ""
 
     try:   
         with stardog.Connection(db_name, **connection_details) as conn:
             query = "SELECT * where { ?s ?p ?o . }"
-            myres = conn.select(query)
+            ontology_data = conn.select(query)
 
     except StardogException as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -58,9 +79,14 @@ async def get_database_data(db_name: str):
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return myres
+    return OntologyData(head = ontology_data["head"], results = ontology_data["results"])
 
-@router.post("/databases/{db_name}/query", status_code = status.HTTP_200_OK)
+#
+# POST /databases/{db_name}/query
+#
+
+### Route
+@router.post("/databases/{db_name}/query", status_code = status.HTTP_200_OK, responses={400: {}, 500: {}})
 async def execute_query(db_name: str, query: str = Body(..., embed = True)):
     """
         Execute a general query on a specific database
@@ -74,16 +100,25 @@ async def execute_query(db_name: str, query: str = Body(..., embed = True)):
             
     except StardogException as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error processing query")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error processing query")
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return myres
+
+#
+# POST /databases/{db_name}
+#
+
+### Model
+class OntologyPostResponse(BaseModel):
+    filename: str = None
     
-@router.post("/databases/{db_name}", status_code = status.HTTP_200_OK)
-async def add_data_to_database(db_name: str, response: Response, ontology: UploadFile = File(None)):
+### Route
+@router.post("/databases/{db_name}", response_model=OntologyPostResponse, status_code = status.HTTP_200_OK, responses={201: {"model": OntologyPostResponse}, 400: {}, 500: {}})
+async def add_data_to_database(db_name: str, response: Response,  ontology: UploadFile = File(None)):
     """
         Add an ontology to the database. Create the databases if it doesn't exists
     """
@@ -126,4 +161,4 @@ async def add_data_to_database(db_name: str, response: Response, ontology: Uploa
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     if database is not None: response.status_code = status.HTTP_201_CREATED
-    return {"filename": file_to_save}
+    return OntologyPostResponse(filename=file_to_save)
