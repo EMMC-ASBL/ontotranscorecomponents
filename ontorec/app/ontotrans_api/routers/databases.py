@@ -6,7 +6,7 @@ import os
 import shutil
 import stardog # type: ignore
 
-from typing import List
+from typing import List, Optional
 
 from fastapi.params import Body
 from fastapi import File, UploadFile, Response
@@ -108,6 +108,47 @@ async def execute_query(db_name: str, query: str = Body(..., embed = True)):
 
     return myres
 
+
+#
+# POST /databases/{db_name}/create
+#
+
+### Model
+class DatabaseCreationResponse(BaseModel):
+    response: str = None
+
+### Route
+@router.post("/databases/{db_name}/create", response_model=DatabaseCreationResponse, status_code = status.HTTP_201_CREATED)
+async def create_database(db_name: str, initEmmo: Optional[bool] = True):
+    """
+       Create a database
+    """
+
+    try:
+
+        with stardog.Admin(**connection_details) as admin:
+            databases = list(map(lambda x : x.name ,admin.databases()))
+            if not db_name in databases: 
+                database = admin.new_database(db_name)
+            else:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database already exists")
+
+            if initEmmo:
+                file = stardog.content.File("reasoner/ontology_cache/full_ontology_inferred_remapped.rdf")
+                with stardog.Connection(db_name, **connection_details) as conn:
+                    conn.begin()
+                    conn.add(file)
+                    conn.commit()
+    
+    except HTTPException as err:
+        raise err
+
+    except Exception as err:
+        print("Exception occurred in /databases/{}: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return DatabaseCreationResponse(response="Database created")
+
 #
 # POST /databases/{db_name}
 #
@@ -117,14 +158,12 @@ class OntologyPostResponse(BaseModel):
     filename: str = None
     
 ### Route
-@router.post("/databases/{db_name}", response_model=OntologyPostResponse, status_code = status.HTTP_200_OK, responses={201: {"model": OntologyPostResponse}, 400: {}, 500: {}})
-async def add_data_to_database(db_name: str, response: Response,  ontology: UploadFile = File(None)):
+@router.post("/databases/{db_name}", response_model=OntologyPostResponse, status_code = status.HTTP_200_OK)
+async def add_data_to_database(db_name: str, response: Response,  ontology: UploadFile = File(...)):
     """
-        Add an ontology to the database. Create the databases if it doesn't exists
+        Add an ontology to the database
     """
 
-    database = None
-    databases = []
     file_to_save = None
 
     if ontology is not None:
@@ -136,8 +175,6 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
                 shutil.copyfileobj(ontology.file, buffer)
 
         file_to_save = ontology.filename
-    else:
-        file_to_save = "full_ontology_inferred_remapped.rdf"
         
 
     try:
@@ -145,20 +182,22 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
         with stardog.Admin(**connection_details) as admin:
             file = stardog.content.File("tmp/{}".format(file_to_save))
             databases = list(map(lambda x : x.name ,admin.databases()))
-            if not db_name in databases: database = admin.new_database(db_name)
+            if not db_name in databases: 
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database {} does not exists".format(db_name))
             with stardog.Connection(db_name, **connection_details) as conn:
                 conn.begin()
                 conn.add(file)
                 conn.commit()
 
+    except HTTPException as err:
+        raise err
+
     except StardogException as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        if database is not None: database.drop()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error during processing of file")
     
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    if database is not None: response.status_code = status.HTTP_201_CREATED
     return OntologyPostResponse(filename=file_to_save)
