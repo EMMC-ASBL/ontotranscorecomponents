@@ -1,0 +1,18 @@
+services:
+  stardog:
+    image: "stardog/stardog"
+    container_name: stardog-service
+    ports:
+      - "5820:5820"
+    volumes:
+      - <LICENSE FOLDER>:/var/opt/stardog
+
+  # PRODUCTION
+  ontorec:
+    image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec"
+    container_name: ontorec-service
+    depends_on:
+       - stardog
+    ports:
+      - "80:80"
+    
