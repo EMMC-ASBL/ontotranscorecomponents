@@ -85,9 +85,14 @@ async def get_database_data(db_name: str):
 # POST /databases/{db_name}/query
 #
 
+## Model
+class QueryBody(BaseModel):
+    query: str
+    reasoning: Optional[bool] = False
+
 ### Route
 @router.post("/databases/{db_name}/query", status_code = status.HTTP_200_OK, responses={400: {}, 500: {}})
-async def execute_query(db_name: str, query: str = Body(..., embed = True)):
+async def execute_query(db_name: str, queryModel: QueryBody):
     """
         Execute a general query on a specific database
     """
@@ -96,7 +101,7 @@ async def execute_query(db_name: str, query: str = Body(..., embed = True)):
     try:
 
         with stardog.Connection(db_name, **connection_details) as conn:
-            myres = conn.select(query)
+            myres = conn.select(queryModel.query, variables={'@reasoning': queryModel.reasoning})
             
     except StardogException as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))

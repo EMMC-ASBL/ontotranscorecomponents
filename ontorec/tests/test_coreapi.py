@@ -7,4 +7,4 @@ client = TestClient(app)
 def test_read_home():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"msg": "OntoTrans FastAPI v0.1"}
+    assert response.json() == {"msg": "OntoREC v0.1"}
