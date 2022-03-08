@@ -119,11 +119,11 @@ async def execute_query(db_name: str, queryModel: QueryBody):
 #
 
 ### Model
-class DatabaseCreationResponse(BaseModel):
+class DatabaseGenericResponse(BaseModel):
     response: str = None
 
 ### Route
-@router.post("/databases/{db_name}/create", response_model=DatabaseCreationResponse, status_code = status.HTTP_201_CREATED)
+@router.post("/databases/{db_name}/create", response_model=DatabaseGenericResponse, status_code = status.HTTP_201_CREATED)
 async def create_database(db_name: str, initEmmo: Optional[bool] = True):
     """
        Create a database
@@ -152,7 +152,7 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return DatabaseCreationResponse(response="Database created")
+    return DatabaseGenericResponse(response="Database created")
 
 #
 # POST /databases/{db_name}
@@ -206,3 +206,33 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return OntologyPostResponse(filename=file_to_save)
+
+
+#
+# DELETE /databases/{db_name}
+#
+
+### Route
+@router.delete("/databases/{db_name}", response_model = DatabaseGenericResponse, status_code = status.HTTP_200_OK)
+async def delete_database(db_name: str):
+    """
+       Delete a database
+    """
+    try:
+
+        with stardog.Admin(**connection_details) as admin:
+            databases = list(map(lambda x : x.name ,admin.databases()))
+            if not db_name in databases: 
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database doesn't exists")
+
+            with stardog.Connection(db_name, **connection_details) as conn:
+                admin.database(db_name).drop()
+    
+    except HTTPException as err:
+        raise err
+
+    except Exception as err:
+        print("Exception occurred in /databases/{}: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return DatabaseGenericResponse(response="Database deleted")
