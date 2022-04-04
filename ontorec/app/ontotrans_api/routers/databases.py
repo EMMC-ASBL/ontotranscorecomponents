@@ -101,7 +101,7 @@ async def execute_query(db_name: str, queryModel: QueryBody):
     try:
 
         with stardog.Connection(db_name, **connection_details) as conn:
-            myres = conn.select(queryModel.query, variables={'@reasoning': queryModel.reasoning})
+            myres = conn.select(queryModel.query, reasoning = queryModel.reasoning)
             
     except StardogException as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
