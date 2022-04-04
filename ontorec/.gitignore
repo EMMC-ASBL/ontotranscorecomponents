@@ -218,6 +218,6 @@ Thumbs.db
 # End of https://www.toptal.com/developers/gitignore/api/emacs,visualstudiocode,python
 
 ### Logic ###
-# /tmp
+/tmp/*
 /reasoner/files
 /reasoner/log

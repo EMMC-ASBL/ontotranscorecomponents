@@ -20,7 +20,7 @@ Both OntoKB and OntoRec are deployed as containerized services.
 
 ## Create network
 
-Both the StardogKB and the OntoRec needs to share the same network to be addressable by name
+Both OntoKB and OntoRec needs to share the same network to be addressable by name
 ```
 docker network create -d bridge corecomponentsnetwork
 ```
@@ -65,5 +65,6 @@ Here is a brief list of the available APIs provided by OntoREC
 |POST|/databases/{db_name}/query|Submit a query as a string to a specific database|
 |POST|/databases/{db_name}/create|Create the database|
 |POST|/databases/{db_name}|Add ontology to existing database |
+|DELETE|/databases/{db_name}|Delete an existing database |
 
 More information can be found on the Redoc of OntoREC instance: http://localhost:80/redoc
