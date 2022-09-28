@@ -64,7 +64,9 @@ Here is a brief list of the available APIs provided by OntoREC
 |GET|/databases/{db_name}|Get all the triples contained into the DB|
 |POST|/databases/{db_name}/query|Submit a query as a string to a specific database|
 |POST|/databases/{db_name}/create|Create the database|
-|POST|/databases/{db_name}|Add ontology to existing database |
+|POST|/databases/{db_name}|Add ontology file to existing database |
+|POST|/databases/{db_name}/single|Add list of triples to existing database |
 |DELETE|/databases/{db_name}|Delete an existing database |
+|DELETE|/databases/{db_name}/single|Delete a list of triples from existing database |
 
 More information can be found on the Redoc of OntoREC instance: http://localhost:80/redoc
