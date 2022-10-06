@@ -156,7 +156,7 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
     return DatabaseGenericResponse(response="Database created")
 
 #
-# POST /databases/{db_name}/insert
+# POST /databases/{db_name}
 #
 
 ### Model
@@ -209,7 +209,7 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
     return OntologyPostResponse(filename=file_to_save)
 
 #
-# POST /databases/{db_name}/insert/single
+# POST /databases/{db_name}/single
 #
 
 ### Model
