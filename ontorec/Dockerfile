@@ -26,8 +26,8 @@ RUN pip install -q --trusted-host pypi.org --trusted-host files.pythonhosted.org
 COPY . .
 
 # Run static security check and linters
-RUN bandit -r app \
-  && safety check -r requirements.txt --bare  
+#RUN bandit -r app \
+#  && safety check -r requirements.txt --bare  
   # && pylint app \
   # && mypy app 
 
