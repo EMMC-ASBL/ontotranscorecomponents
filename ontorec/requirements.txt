@@ -53,3 +53,4 @@ typing-extensions==3.10.0.0
 urllib3==1.26.6
 wrapt==1.12.1
 wsproto==1.0.0
+accept-types==0.4.1

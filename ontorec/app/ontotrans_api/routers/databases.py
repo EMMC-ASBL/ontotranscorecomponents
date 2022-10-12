@@ -1,15 +1,16 @@
 """
     Router for operations with databases
 """
-
+import json
 import os
 import shutil
 import stardog # type: ignore
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from fastapi.params import Body
-from fastapi import File, UploadFile, Response
+from accept_types import get_best_match
+from fastapi.params import Header
+from fastapi import File, UploadFile, Response, Request
 from fastapi import APIRouter, HTTPException, status
 
 from pydantic import BaseModel
@@ -82,7 +83,7 @@ async def get_database_data(db_name: str):
     return OntologyData(head = ontology_data["head"], results = ontology_data["results"])
 
 #
-# POST /databases/{db_name}/query
+# GET & POST /databases/{db_name}/query
 #
 
 ## Model
@@ -91,27 +92,78 @@ class QueryBody(BaseModel):
     reasoning: Optional[bool] = False
 
 ### Route
-@router.post("/databases/{db_name}/query", status_code = status.HTTP_200_OK, responses={400: {}, 500: {}})
-async def execute_query(db_name: str, queryModel: QueryBody):
+@router.get("/databases/{db_name}/query", status_code = status.HTTP_200_OK, responses={400: {}, 500: {}},)
+async def execute_query_get(db_name: str, query: str, reasoning: bool = False,
+                            accept: Union[str, None] = Header(default=None)):
     """
         Execute a general query on a specific database
     """
-    myres = ""
+    return __query(db_name, query, reasoning=reasoning, accept=accept)
 
+## Route
+@router.post("/databases/{db_name}/query", status_code = status.HTTP_200_OK, responses={400: {}, 500: {}})
+async def execute_query_post(db_name: str, req: Request):
+    """
+        Execute a general query on a specific database
+    """
+    c_type = req.headers.get("Content-Type")
+    if "application/x-www-form-urlencoded" in c_type:
+        query_model = QueryBody(** await req.form())
+        query = query_model.query
+        reasoning = query_model.reasoning
+    elif "application/sparql-query" in c_type:
+        query = await req.body()
+        r = req.query_params.get("reasoning", 0)
+        reasoning = (r.lower() in ("true", "yes", " t", "1")) if r is not None else False
+    else:
+        query_model = QueryBody(** await req.json())
+        query = query_model.query
+        reasoning = query_model.reasoning
+
+    accept = req.headers.get("Accept", "application/sparql-results+json")
+
+    return __query(db_name, query, reasoning=reasoning, accept=accept)
+
+def __query(db_name: str, query: str, reasoning: Optional[bool] = False,
+            accept: str = "application/sparql-results+json"):
+    """
+        Execute a SPARQL query on a Stardog database with the specified name
+    """
+    content_type = __parse_content_type(accept)
     try:
 
         with stardog.Connection(db_name, **connection_details) as conn:
-            myres = conn.select(queryModel.query, reasoning = queryModel.reasoning)
-            
+            data = conn.select(query, reasoning=reasoning,
+                               content_type=content_type)
+
+            if content_type == "application/sparql-results+json" or content_type == "application/json":
+                data = json.dumps(data)
+
+            return Response(content=data, media_type=content_type)
+
     except StardogException as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error processing query")
+        print("Exception occurred in /databases/{}: {}".format(db_name, err))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Error processing query")
 
     except Exception as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+        print("Exception occurred in /databases/{}: {}".format(db_name, err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Cannot connect to Stardog instance")
 
-    return myres
+def __parse_content_type(accept_header: str) -> str:
+    c_type = get_best_match(accept_header, ["application/sparql-results+json",
+                                            "application/json",
+                                            "application/sparql-results+xml",
+                                            "application/xml"])
+    if not c_type:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            detail="'%s' types not supported" % accept_header)
+    if c_type == "application/json":
+        c_type = "application/sparql-results+json"
+    if c_type == "application/xml":
+        c_type = "application/sparql-results+xml"
+    return c_type
 
 
 #
