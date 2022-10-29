@@ -11,6 +11,7 @@ from typing import List, Optional, Union
 from fastapi.params import Body
 from fastapi import File, UploadFile, Response
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 
@@ -81,6 +82,34 @@ async def get_database_data(db_name: str):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return OntologyData(head = ontology_data["head"], results = ontology_data["results"])
+
+#
+# GET /databases/{db_name}/serialization
+#
+
+### Model
+class SerializedContent(BaseModel):
+    content: str = ""
+
+@router.get("/databases/{db_name}/serialization", response_model=SerializedContent, status_code = status.HTTP_200_OK)
+async def serialize_database(db_name:str, format: str = "turtle"):
+    """
+        Serialize database in a specific format
+    """
+
+    if format != "turtle":
+        return JSONResponse(status_code=status.HTTP_406_NOT_ACCEPTABLE, content={"detail": "{} format not supported".format(format)})
+
+    serialized_content = ""
+    try:   
+        with stardog.Connection(db_name, **connection_details) as conn:
+            serialized_content = conn.export()
+
+    except Exception as err:
+        print("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return SerializedContent(content=serialized_content)
 
 #
 # POST /databases/{db_name}/query
