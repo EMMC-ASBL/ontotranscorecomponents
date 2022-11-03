@@ -61,10 +61,20 @@ Here is a brief list of the available APIs provided by OntoREC
 |METHOD|ENDPOINT|DESCRIPTION|
 |---|---|---|
 |GET|/databases|Get the list of all available databases|
-|GET|/databases/{db_name}|Get all the triples contained into the DB|
+|GET|/databases/{db_name}|Get all the triples contained into the database|
+|GET|/databases/{db_name}/serialization|Get the serialization of the current database in a specified format|
 |POST|/databases/{db_name}/query|Submit a query as a string to a specific database|
 |POST|/databases/{db_name}/create|Create the database|
-|POST|/databases/{db_name}|Add ontology to existing database |
+|POST|/databases/{db_name}|Add ontology file to existing database |
+|POST|/databases/{db_name}/single|Add list of triples to existing database |
 |DELETE|/databases/{db_name}|Delete an existing database |
+|DELETE|/databases/{db_name}/single|Delete a list of triples from existing database |
+|GET|/databases/{db_name}/namespaces|Get all the namespaces present in a database |
+|GET|/databases/{db_name}/namespaces/base|Get the information related to the base namespace |
+|GET|/databases/{db_name}/namespaces/{namespace_name}|Get the information related to a specific namespace |
+|POST|/databases/{db_name}/namespaces|Add a new namespace |
+|DELETE|/databases/{db_name}/namespaces/base|Delete the base namespace |
+|DELETE|/databases/{db_name}/namespaces/{namespace_name}|Delete an existing namespace |
+
 
 More information can be found on the Redoc of OntoREC instance: http://localhost:80/redoc

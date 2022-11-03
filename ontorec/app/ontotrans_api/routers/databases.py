@@ -6,13 +6,15 @@ import os
 import shutil
 import stardog # type: ignore
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi.params import Body
 from fastapi import File, UploadFile, Response
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
+
 
 from stardog.exceptions import StardogException # type: ignore
 
@@ -80,6 +82,34 @@ async def get_database_data(db_name: str):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return OntologyData(head = ontology_data["head"], results = ontology_data["results"])
+
+#
+# GET /databases/{db_name}/serialization
+#
+
+### Model
+class SerializedContent(BaseModel):
+    content: str = ""
+
+@router.get("/databases/{db_name}/serialization", response_model=SerializedContent, status_code = status.HTTP_200_OK)
+async def serialize_database(db_name:str, format: str = "turtle"):
+    """
+        Serialize database in a specific format
+    """
+
+    if format != "turtle":
+        return JSONResponse(status_code=status.HTTP_406_NOT_ACCEPTABLE, content={"detail": "{} format not supported".format(format)})
+
+    serialized_content = ""
+    try:   
+        with stardog.Connection(db_name, **connection_details) as conn:
+            serialized_content = conn.export()
+
+    except Exception as err:
+        print("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return SerializedContent(content=serialized_content)
 
 #
 # POST /databases/{db_name}/query
@@ -166,7 +196,7 @@ class OntologyPostResponse(BaseModel):
 @router.post("/databases/{db_name}", response_model=OntologyPostResponse, status_code = status.HTTP_200_OK)
 async def add_data_to_database(db_name: str, response: Response,  ontology: UploadFile = File(...)):
     """
-        Add an ontology to the database
+        Add an ontology file to the database
     """
 
     file_to_save = None
@@ -207,6 +237,56 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
 
     return OntologyPostResponse(filename=file_to_save)
 
+#
+# POST /databases/{db_name}/single
+#
+
+### Model
+class Triple(BaseModel):
+    s: Union[str, None]
+    p: Union[str, None]
+    o: Union[str, None]
+
+class TripleList(BaseModel):
+    triples: List[Triple]
+
+    
+### Route
+@router.post("/databases/{db_name}/single", response_model=DatabaseGenericResponse, status_code = status.HTTP_200_OK)
+async def add_triples_to_database(db_name: str, response: Response,  triples: TripleList):
+    """
+        Add single turtle triples to the database
+    """
+
+    try:
+
+        with stardog.Admin(**connection_details) as admin:
+            with stardog.Connection(db_name, **connection_details) as conn:
+                conn.begin()
+
+                for triple in triples.triples:
+                    s = triple.s
+                    p = triple.p
+                    o = triple.o
+                    
+                    # Check if triple is complete - no handling if triple contains not defined namespaces
+                    if s is not None and p is not None and o is not None:
+                        conn.add(stardog.content.Raw("{} {} {}".format(s, p, o), "text/turtle"))
+                
+                conn.commit()
+
+    except HTTPException as err:
+        raise err
+
+    except StardogException as err:
+        print("Exception occurred in /databases/{}: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error during processing of triples")
+    
+    except Exception as err:
+        print("Exception occurred in /databases/{}: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return DatabaseGenericResponse(response="Triples added successfully")
 
 #
 # DELETE /databases/{db_name}
@@ -236,3 +316,39 @@ async def delete_database(db_name: str):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Database deleted")
+
+#
+# DELETE /databases/{db_name}/single
+#
+
+### Route
+@router.delete("/databases/{db_name}/single", response_model = DatabaseGenericResponse, status_code = status.HTTP_200_OK)
+async def delete_database_triples(db_name: str,  triples: TripleList):
+    """
+       Delete triples from database
+    """
+    try:
+
+        with stardog.Admin(**connection_details) as admin:
+            with stardog.Connection(db_name, **connection_details) as conn:
+                conn.begin()
+
+                for triple in triples.triples:
+                    s = triple.s
+                    p = triple.p
+                    o = triple.o
+                    
+                    # Check if triple is complete - no handling if triple contains not defined namespaces
+                    if s is not None and p is not None and o is not None:
+                        conn.remove(stardog.content.Raw("{} {} {}".format(s, p, o), "text/turtle"))
+                
+                conn.commit()
+    
+    except HTTPException as err:
+        raise err
+
+    except Exception as err:
+        print("Exception occurred in /databases/{}: {}".format(db_name,err))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
+
+    return DatabaseGenericResponse(response="Triples deleted successfully")
