@@ -152,7 +152,7 @@ class GenericBooleanResponse(BaseModel):
 
 ### Route
 @router.delete("/databases/{db_name}/namespaces/base", status_code = status.HTTP_204_NO_CONTENT)
-async def delete_namespace(db_name: str):
+async def delete_namespace_byname(db_name: str):
     """
         Delete namespace in a database
     """

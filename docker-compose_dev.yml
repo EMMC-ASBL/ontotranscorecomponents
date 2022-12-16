@@ -1,0 +1,22 @@
+services:
+  stardog:
+    image: "stardog/stardog"
+    container_name: stardog-service
+    ports:
+      - "5820:5820"
+    volumes:
+      - ${LICENSE_PATH}:/var/opt/stardog
+
+  ontorec:
+    image: "ontotrans/ontorec-development"
+    build:
+      context: "./ontorec"
+      target: "${ONTOREC_TARGET:-development}"
+    volumes:
+      - ${ONTOREC_APP_PATH}:/app
+    container_name: ontorec-service
+    depends_on:
+      - stardog
+    ports:
+      - "8080:8080"
+    

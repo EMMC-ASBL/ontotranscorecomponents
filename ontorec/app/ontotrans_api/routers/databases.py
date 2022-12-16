@@ -81,7 +81,7 @@ async def get_database_data(db_name: str):
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return OntologyData(head = ontology_data["head"], results = ontology_data["results"])
+    return OntologyData(head = ontology_data["head"], results = ontology_data["results"]) # type: ignore
 
 #
 # GET /databases/{db_name}/serialization
@@ -150,7 +150,7 @@ async def execute_query(db_name: str, queryModel: QueryBody):
 
 ### Model
 class DatabaseGenericResponse(BaseModel):
-    response: str = None
+    response: str = ""
 
 ### Route
 @router.post("/databases/{db_name}/create", response_model=DatabaseGenericResponse, status_code = status.HTTP_201_CREATED)
@@ -190,7 +190,7 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
 ### Model
 class OntologyPostResponse(BaseModel):
-    filename: str = None
+    filename: Union[str, None] = None
     
 ### Route
 @router.post("/databases/{db_name}", response_model=OntologyPostResponse, status_code = status.HTTP_200_OK)
