@@ -8,10 +8,15 @@ services:
       - ${LICENSE_PATH}:/var/opt/stardog
 
   ontorec:
-    image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec:latest"
+    image: "ontotrans/ontorec-development"
+    build:
+      context: "./ontorec"
+      target: "${ONTOREC_TARGET:-development}"
+    volumes:
+      - ${ONTOREC_APP_PATH}:/app
     container_name: ontorec-service
     depends_on:
       - stardog
     ports:
-      - "80:80"
+      - "8080:8080"
     
