@@ -39,14 +39,16 @@ pytest==6.2.4
 pytest-cov==2.12.1
 PyYAML==5.4.1
 python-multipart==0.0.5
-requests==2.26.0
+requests==2.28.0
 safety==1.10.3
 six==1.16.0
 smmap==4.0.0
+SPARQLWrapper==2.0.0
 starlette==0.14.2
 stevedore==3.3.0
 tenacity==7.0.0
 toml==0.10.2
+tripper==0.2.0
 types-aiofiles==0.7.0
 types-requests==2.25.9
 typing-extensions==3.10.0.0
