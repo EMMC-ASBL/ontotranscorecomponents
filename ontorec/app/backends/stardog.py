@@ -193,9 +193,13 @@ class StardogStrategy(SparqlwrapperStrategy):
     def bind(self, prefix: str, namespace: str):
 
         try:
-            self.__database.add_namespace(prefix, namespace)
+            if namespace is None:
+                self.__database.remove_namespace(prefix)
+            else:
+                self.__database.add_namespace(prefix, namespace)
         except Exception as err:
-            print("Namespace already exists...skipping")
+            print(err)
+
 
     def serialize(self, destination=None, format='turtle', **kwargs):
 

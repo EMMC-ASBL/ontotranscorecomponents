@@ -213,6 +213,19 @@ class Stardog_TestCase(unittest.TestCase):
         self.assertTrue(found)
 
 
+    def test_bind_deletion(self):
+        self.__triplestore.bind("owl", None) # type:ignore
+        current_namespaces = self.__database.namespaces() # type:ignore
+
+        self.assertEqual(len(current_namespaces), len(self.__existing_namespaces) - 1)
+        not_found = True
+        for namespace in current_namespaces:
+            if namespace["prefix"] == "owl":
+                not_found = False
+                break
+        self.assertTrue(not_found)
+
+
     ## Utils function
     def parseQueryResult(self, query_result: dict):
         query_vars = query_result["head"]["vars"]    # type: ignore
