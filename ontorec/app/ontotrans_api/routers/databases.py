@@ -2,12 +2,8 @@
     Router for operations with databases
 """
 
-import os
-import shutil
-import stardog # type: ignore
-
-from typing import List, Optional, Union
-
+from pathlib import Path
+from typing import List, Optional, Union, Tuple
 from fastapi.params import Body
 from fastapi import File, UploadFile, Response
 from fastapi import APIRouter, HTTPException, status
@@ -15,10 +11,13 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 
-
+from tripper import Literal
+from app.backends.stardog import StardogStrategy
 from stardog.exceptions import StardogException # type: ignore
+from ..core import triplestore_host, triplestore_port, connection_details
 
-from ..core import connection_details
+
+N3Triple = Tuple[str, str, str]
 
 router = APIRouter(
     tags = ["Databases"]
@@ -41,9 +40,7 @@ async def get_databases():
     databases = []
 
     try:
-
-        with stardog.Admin(**connection_details) as admin:
-            databases = list(map(lambda x : x.name ,admin.databases()))
+        databases = StardogStrategy.list_databases()
 
     except Exception as err:
         print("Exception occurred in /databases: {}".format(err))
@@ -57,31 +54,29 @@ async def get_databases():
 
 ### Model
 class OntologyData(BaseModel):
-    head: dict = {}
-    results: dict = {}
+    triples: List[N3Triple] = []
 
 ### Route
-@router.get("/databases/{db_name}", response_model=OntologyData, status_code = status.HTTP_200_OK, responses={404: {}, 500: {}})
+@router.get("/databases/{db_name}", response_model=OntologyData, status_code = status.HTTP_200_OK, responses={500: {}})
 async def get_database_data(db_name: str):
     """
         Retrieve all data from a specific database
     """
-    ontology_data = ""
+    triples = []
 
     try:   
-        with stardog.Connection(db_name, **connection_details) as conn:
-            query = "SELECT * where { ?s ?p ?o . }"
-            ontology_data = conn.select(query)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        db_content = triplestore.triples((None, None, None)) # type: ignore
 
-    except StardogException as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database {} does not exists".format(db_name))
+        for triple in db_content:
+            converted_triple = convert_triple_to_N3(triple) # type: ignore
+            triples.append(converted_triple)
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return OntologyData(head = ontology_data["head"], results = ontology_data["results"]) # type: ignore
+    return OntologyData(triples = triples) # type: ignore
 
 #
 # GET /databases/{db_name}/serialization
@@ -102,8 +97,8 @@ async def serialize_database(db_name:str, format: str = "turtle"):
 
     serialized_content = ""
     try:   
-        with stardog.Connection(db_name, **connection_details) as conn:
-            serialized_content = conn.export()
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        serialized_content = triplestore.serialize(format="turtle")
 
     except Exception as err:
         print("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
@@ -126,22 +121,24 @@ async def execute_query(db_name: str, queryModel: QueryBody):
     """
         Execute a general query on a specific database
     """
-    myres = ""
 
     try:
 
-        with stardog.Connection(db_name, **connection_details) as conn:
-            myres = conn.select(queryModel.query, reasoning = queryModel.reasoning)
-            
-    except StardogException as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error processing query")
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        results = triplestore.query(queryModel.query, reasoning=queryModel.reasoning)
+
+        triples = []
+        for triple in results:
+            converted_tuple = ()
+            for el in triple:
+                converted_tuple = converted_tuple + (convert_value_to_N3(el),)
+            triples.append(converted_tuple)
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return myres
+    return triples # type: ignore
 
 
 #
@@ -161,22 +158,16 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
     try:
 
-        with stardog.Admin(**connection_details) as admin:
-            databases = list(map(lambda x : x.name ,admin.databases()))
-            if not db_name in databases: 
-                database = admin.new_database(db_name)
-            else:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database already exists")
+        current_databases = StardogStrategy.list_databases()
+        if not db_name in current_databases: #type:ignore
+            StardogStrategy.create_database(db_name)
+        else:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content="Database already exists")
 
-            if initEmmo:
-                file = stardog.content.File("reasoner/ontology_cache/full_ontology_inferred_remapped.rdf")
-                with stardog.Connection(db_name, **connection_details) as conn:
-                    conn.begin()
-                    conn.add(file)
-                    conn.commit()
-    
-    except HTTPException as err:
-        raise err
+        if initEmmo:
+            triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+            emmo_path = str(Path(str(Path(__file__).parent.parent.parent.parent.resolve()) + "\\ontologies\\full_ontology_inferred_remapped.rdf"))
+            triplestore.parse(location=emmo_path, format="rdf")
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -198,44 +189,21 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
     """
         Add an ontology file to the database
     """
-
-    file_to_save = None
-
-    if ontology is not None:
-        extension = ontology.filename.split(".")[1]
-        if not extension in ["rdf", "ttl"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Format {} not supported".format(extension))
-        else:
-            with open("tmp/" + ontology.filename, "wb") as buffer:
-                shutil.copyfileobj(ontology.file, buffer)
-
-        file_to_save = ontology.filename
-        
+    content = ontology.file.read()
 
     try:
-
-        with stardog.Admin(**connection_details) as admin:
-            file = stardog.content.File("tmp/{}".format(file_to_save))
-            databases = list(map(lambda x : x.name ,admin.databases()))
-            if not db_name in databases: 
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database {} does not exists".format(db_name))
-            with stardog.Connection(db_name, **connection_details) as conn:
-                conn.begin()
-                conn.add(file)
-                conn.commit()
-
-    except HTTPException as err:
-        raise err
-
-    except StardogException as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error during processing of file")
+        extension = ontology.filename.split(".")[1]
+        if not extension in ["ttl"]:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Format {} not supported".format(extension))
+        else:
+            triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+            triplestore.parse(data=content)
     
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
-    return OntologyPostResponse(filename=file_to_save)
+    return OntologyPostResponse(filename=ontology.filename)
 
 #
 # POST /databases/{db_name}/single
@@ -260,27 +228,12 @@ async def add_triples_to_database(db_name: str, response: Response,  triples: Tr
 
     try:
 
-        with stardog.Admin(**connection_details) as admin:
-            with stardog.Connection(db_name, **connection_details) as conn:
-                conn.begin()
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        formatted_triples = []
+        for triple in triples.triples:
+            formatted_triples.append((triple.s, triple.p, triple.o))
 
-                for triple in triples.triples:
-                    s = triple.s
-                    p = triple.p
-                    o = triple.o
-                    
-                    # Check if triple is complete - no handling if triple contains not defined namespaces
-                    if s is not None and p is not None and o is not None:
-                        conn.add(stardog.content.Raw("{} {} {}".format(s, p, o), "text/turtle"))
-                
-                conn.commit()
-
-    except HTTPException as err:
-        raise err
-
-    except StardogException as err:
-        print("Exception occurred in /databases/{}: {}".format(db_name,err))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error during processing of triples")
+        triplestore.add_triples(formatted_triples)
     
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -300,16 +253,7 @@ async def delete_database(db_name: str):
     """
     try:
 
-        with stardog.Admin(**connection_details) as admin:
-            databases = list(map(lambda x : x.name ,admin.databases()))
-            if not db_name in databases: 
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database doesn't exists")
-
-            with stardog.Connection(db_name, **connection_details) as conn:
-                admin.database(db_name).drop()
-    
-    except HTTPException as err:
-        raise err
+       StardogStrategy.remove_database(db_name)
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -329,26 +273,25 @@ async def delete_database_triples(db_name: str,  triples: TripleList):
     """
     try:
 
-        with stardog.Admin(**connection_details) as admin:
-            with stardog.Connection(db_name, **connection_details) as conn:
-                conn.begin()
-
-                for triple in triples.triples:
-                    s = triple.s
-                    p = triple.p
-                    o = triple.o
-                    
-                    # Check if triple is complete - no handling if triple contains not defined namespaces
-                    if s is not None and p is not None and o is not None:
-                        conn.remove(stardog.content.Raw("{} {} {}".format(s, p, o), "text/turtle"))
-                
-                conn.commit()
-    
-    except HTTPException as err:
-        raise err
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        for triple in triples.triples:
+            formatted_triple = (triple.s, triple.p, triple.o)
+            triplestore.remove(formatted_triple) #type:ignore
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Triples deleted successfully")
+
+
+## Utils
+def convert_value_to_N3(value):
+    new_value = value.n3() if isinstance(value, Literal) else value if value.startswith("<") or value.startswith("_:") else "<{}>".format(value)  
+
+    return new_value
+
+def convert_triple_to_N3(triple):
+    s, p, o = triple
+
+    return (convert_value_to_N3(s), convert_value_to_N3(p), convert_value_to_N3(o))
