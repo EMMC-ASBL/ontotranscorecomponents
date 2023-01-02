@@ -1,10 +1,8 @@
 import unittest
 import stardog
-import os
 from pathlib import Path
 from tripper.literal import Literal
-from rdflib import BNode, Graph
-from rdflib import Literal as rdflibLiteral
+from rdflib import BNode
 from rdflib import URIRef
 from app.backends.stardog import StardogStrategy
 
@@ -78,15 +76,16 @@ class Stardog_TestCase(unittest.TestCase):
 
 
     def test_parse(self):
-        ontology_file_path = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.ttl"))
-        self.__triplestore.parse(source = ontology_file_path)
+        ontology_file_path_ttl = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.ttl"))
+        ontology_file_path_rdf = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.rdf"))
+        
+        self.parseTestSkeleton(input_format="turtle", input_type="source", ontology_file_path=ontology_file_path_ttl)
+        self.parseTestSkeleton(input_format="turtle", input_type="location", ontology_file_path=ontology_file_path_ttl)
+        self.parseTestSkeleton(input_format="turtle", input_type="data", ontology_file_path=ontology_file_path_ttl)
 
-        db_content = self.__connection.export(stardog.content_types.TURTLE).decode()  # type: ignore
-
-        with open(str(Path(str(Path(__file__).parent.resolve()) + "\\expected_ontology.ttl")), "r") as out_file:
-            expected_serialization = out_file.read()
-
-        self.assertEqual(expected_serialization, db_content)
+        self.parseTestSkeleton(input_format="rdf", input_type="source", ontology_file_path=ontology_file_path_rdf)
+        self.parseTestSkeleton(input_format="rdf", input_type="location", ontology_file_path=ontology_file_path_rdf)
+        self.parseTestSkeleton(input_format="rdf", input_type="data", ontology_file_path=ontology_file_path_rdf)
 
 
     def test_serialize(self):
@@ -96,7 +95,7 @@ class Stardog_TestCase(unittest.TestCase):
         self.__connection.commit()
 
         db_content = self.__triplestore.serialize()
-        with open(str(Path(str(Path(__file__).parent.resolve()) + "\\expected_ontology.ttl")), "r") as out_file:
+        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\expected_ontology.ttl")), "r") as out_file:
             expected_serialization = out_file.read()
         
         self.assertEqual(expected_serialization, db_content)
@@ -226,7 +225,25 @@ class Stardog_TestCase(unittest.TestCase):
         self.assertTrue(not_found)
 
 
-    ## Utils function
+    ## Utils functions
+
+    def parseTestSkeleton(self, input_format, input_type, ontology_file_path, input_encoding="utf8"):
+        if input_type == "source":
+            self.__triplestore.parse(source = open(ontology_file_path, "r", encoding=input_encoding), format=input_format)
+        elif input_type == "location":
+            self.__triplestore.parse(location = ontology_file_path, format=input_format)
+        else:
+            with open(ontology_file_path, "r", encoding=input_encoding) as file:
+                self.__triplestore.parse(data = file.read(), format=input_format)
+
+        db_content = self.__connection.export(stardog.content_types.TURTLE).decode()  # type: ignore
+
+        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\expected_ontology.ttl")), "r") as out_file:
+            expected_serialization = out_file.read()
+
+        self.assertEqual(expected_serialization, db_content)
+
+
     def parseQueryResult(self, query_result: dict):
         query_vars = query_result["head"]["vars"]    # type: ignore
         query_bindings = query_result["results"]["bindings"]     # type: ignore

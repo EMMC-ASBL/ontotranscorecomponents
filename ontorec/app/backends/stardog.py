@@ -1,6 +1,7 @@
 import os
 import io
 import stardog
+from stardog import content_types
 from tripper import Literal
 from typing import TYPE_CHECKING
 from tripper.backends.sparqlwrapper import SparqlwrapperStrategy
@@ -22,7 +23,15 @@ class StardogStrategy(SparqlwrapperStrategy):
     __default_uname = "admin"
     __default_pwd = "admin"
     __serialization_format_supported = ["turtle", "rdf"]
-    __parsing_format_supported = ["turtle"]
+    __parsing_format_supported = ["turtle", "rdf"]
+    __content_types = {
+        "turtle": "text/turtle",
+        "rdf": "application/rdf+xml"
+    }
+    __file_extension = {
+        "turtle": ".ttl",
+        "rdf": ".rdf"
+    }
 
     def __init__(self, base_iri: str, database: str, **kwargs) -> None:
         self.__uname = self.__default_uname
@@ -229,24 +238,31 @@ class StardogStrategy(SparqlwrapperStrategy):
         
     def parse(self, source=None, location=None, data=None, format="turtle", **kwargs):
 
-        content = ""
+        if format not in self.__parsing_format_supported:
+            raise Exception("Format not supported")
 
-        if source is not None and isinstance(source, (io.IOBase, io.TextIOBase, io.BufferedIOBase, io.RawIOBase)) and format in self.__parsing_format_supported:
+        specific_content = ""
+        content_type = self.__content_types[format]
+
+        if source is not None and isinstance(source, (io.IOBase, io.TextIOBase, io.BufferedIOBase, io.RawIOBase)):
             content = source.read()
+            specific_content = stardog.content.Raw(content, content_type)
+
         elif (source is not None and isinstance(source, str)) or (location is not None):
             to_parse = source if source is not None else location
             filename, file_extension = os.path.splitext(str(to_parse))
-            if file_extension != ".ttl":
-                raise Exception("Only turtle format is supported")
-            with open(to_parse, "r") as f: # type: ignore
-                content = f.read()
-        elif format in self.__parsing_format_supported:
-            content = data
+            if self.__file_extension[format] != file_extension:
+                raise Exception("File extensione not coherent with format")
+            specific_content = stardog.content.File(to_parse, content_type)
+
+        elif data is not None:
+            specific_content = stardog.content.Raw(data, content_type)
+
         else:
-            raise Exception("Error during argument checking\nOnly one among source, location and data must be provided\nOnly turtle format is supported")
+            raise Exception("Error during argument checking\nOnly one among source, location and data must be provided\n")
 
         self.__connection.begin()
-        self.__connection.add(stardog.content.Raw(content, "text/turtle"))
+        self.__connection.add(specific_content)
         self.__connection.commit()
 
 
