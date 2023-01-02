@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 from app.backends.stardog import StardogStrategy
-from ..core import connection_details
+from ..core import triplestore_host, triplestore_port, connection_details
 
 router = APIRouter(
     tags = ["Namespaces"]
@@ -43,8 +43,6 @@ async def get_namespaces(db_name: str):
     
     response = Namespaces()
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
@@ -71,8 +69,7 @@ async def get_base_namespace(db_name: str):
 
     response = Namespace()
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
+        
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
@@ -100,8 +97,6 @@ async def get_namespace(db_name: str, namespace_name: str):
 
     response = Namespace()
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
@@ -130,8 +125,6 @@ async def add_namespace(db_name: str, namespace: Namespace):
     real_prefix = "" if namespace.prefix == "base" else namespace.prefix
     real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
         namespaces_raw = triplestore.namespaces()
 
@@ -162,8 +155,6 @@ async def delete_namespace_byname(db_name: str):
     """
 
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
         namespaces_raw = triplestore.namespaces()
 
@@ -187,8 +178,6 @@ async def delete_namespace(db_name: str, namespace_name: str):
     """
 
     try:
-        triplestore_host = "localhost"
-        triplestore_port = "5820"
         triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
         namespaces_raw = triplestore.namespaces()
 

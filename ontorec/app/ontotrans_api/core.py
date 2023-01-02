@@ -11,6 +11,9 @@ connection_details = {
     'password': 'admin'
 }
 
+triplestore_host = "localhost"
+triplestore_port = "5820"
+
 @router.get("/")
 async def home():
     """
