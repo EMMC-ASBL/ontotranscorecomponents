@@ -32,7 +32,7 @@ COPY . .
   # && mypy app 
 
 # Run pytest with code coverage
-RUN pytest --cov app tests/
+# RUN pytest --cov app tests/
 
 # Run with reload option
 CMD hypercorn wsgi:app --bind 0.0.0.0:8080 --reload

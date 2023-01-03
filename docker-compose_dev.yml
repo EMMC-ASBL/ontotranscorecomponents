@@ -1,5 +1,5 @@
 services:
-  stardog:
+  ontokb:
     image: "stardog/stardog"
     container_name: stardog-service
     ports:
@@ -16,7 +16,11 @@ services:
       - ${ONTOREC_APP_PATH}:/app
     container_name: ontorec-service
     depends_on:
-      - stardog
+      - ontokb
     ports:
       - "8080:8080"
+    environment:
+      ONTOKB_BACKEND: stardog
+      ONTOKB_HOST: ontokb
+      ONTOKB_PORT: 5820
     

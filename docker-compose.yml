@@ -1,5 +1,5 @@
 services:
-  stardog:
+  ontokb:
     image: "stardog/stardog"
     container_name: stardog-service
     ports:
@@ -11,7 +11,11 @@ services:
     image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec:latest"
     container_name: ontorec-service
     depends_on:
-      - stardog
+      - ontokb
     ports:
       - "80:80"
+    environment:
+      ONTOKB_BACKEND: stardog
+      ONTOKB_HOST: ontokb
+      ONTOKB_PORT: 5820
     

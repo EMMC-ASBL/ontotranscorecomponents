@@ -1,9 +1,8 @@
 import app
 import unittest
 import stardog
-import json
+import app.ontotrans_api.handlers.triplestore_configuration as config
 from fastapi.testclient import TestClient
-from app.backends.stardog import StardogStrategy
 
 
 class NamespacesAPIs_TestCase(unittest.TestCase):
@@ -12,10 +11,12 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
     def setUpClass(cls):
 
         cls.__client = TestClient(app.create_app())
-        cls.__admin: stardog.Admin = stardog.Admin()
+        config.inject_configuration("localhost", "5820", "stardog")
+        endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        cls.__admin: stardog.Admin = stardog.Admin(endpoint = endpoint)
         cls.__existing_databases = list(map(lambda x : x.name ,  cls.__admin.databases()))
         cls.__connection_details = {
-            'endpoint': "http://localhost:5820",
+            'endpoint': endpoint,
             'username': "admin",
             'password': "admin"
         }
@@ -26,7 +27,6 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
         self.__database_name = "namespace_test"
         self.__database = self.__admin.new_database(self.__database_name)
         self.__connection = stardog.Connection(self.__database_name, **self.__connection_details)
-        self.__triplestore: StardogStrategy = StardogStrategy(base_iri="http://localhost:5820", database=self.__database_name)
         self.__existing_namespaces = self.__database.namespaces() # type: ignore
         self.__existing_namespaces = [ {"prefix": namespace["prefix"], "iri": namespace["name"]} for namespace in self.__existing_namespaces]
 
@@ -67,7 +67,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
 
     def test_get_base_namespaceser_error(self):
 
-        self.__triplestore.bind("", None) #type:ignore
+        self.__database.remove_namespace("") #type:ignore
         response = self.__client.get("/databases/{}/namespaces/base".format(self.__database_name))
 
         self.assertEqual(response.status_code, 404)
@@ -85,7 +85,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
 
     def test_get_namespaceser_error(self):
 
-        self.__triplestore.bind("owl", None) #type:ignore
+        self.__database.remove_namespace("owl") #type:ignore
         response = self.__client.get("/databases/{}/namespaces/owl".format(self.__database_name))
 
         self.assertEqual(response.status_code, 404)
@@ -115,7 +115,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
         old_base_namespace["prefix"] = ""
         old_base_namespace["iri"] = "http://api.stardog.com/"
 
-        self.__triplestore.bind("", None) #type:ignore
+        self.__database.remove_namespace("") #type:ignore
 
         response = self.__client.post("/databases/{}/namespaces".format(self.__database_name), json=new_base_namespace)
         response_obj = response.json()
@@ -162,7 +162,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
         removed_namespace["prefix"] = ""
         removed_namespace["iri"] = "http://api.stardog.com/"
 
-        self.__triplestore.bind("", None) #type:ignore
+        self.__database.remove_namespace("") #type:ignore
 
         response = self.__client.delete("/databases/{}/namespaces/base".format(self.__database_name))
         updated_namespaces = self.__database.namespaces() # type: ignore
@@ -191,7 +191,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
         removed_namespace["prefix"] = "owl"
         removed_namespace["iri"] = "http://www.w3.org/2002/07/owl#"
 
-        self.__triplestore.bind("owl", None) #type:ignore
+        self.__database.remove_namespace("owl") #type:ignore
 
         response = self.__client.delete("/databases/{}/namespaces/owl".format(self.__database_name))
         updated_namespaces = self.__database.namespaces() # type: ignore

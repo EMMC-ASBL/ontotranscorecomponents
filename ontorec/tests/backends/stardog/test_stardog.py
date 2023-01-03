@@ -1,5 +1,7 @@
 import unittest
 import stardog
+import os
+import app.ontotrans_api.handlers.triplestore_configuration as config
 from pathlib import Path
 from tripper.literal import Literal
 from rdflib import BNode
@@ -16,10 +18,12 @@ class Stardog_TestCase(unittest.TestCase):
         ## Databases currently on stardog so you can ignore them when running tests
         ## Access data initialization for PyStardog
 
-        cls.__admin: stardog.Admin = stardog.Admin()
+        config.inject_configuration("localhost", "5820", "stardog")
+        cls.__endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        cls.__admin: stardog.Admin = stardog.Admin(endpoint = cls.__endpoint)
         cls.__existing_databases = list(map(lambda x : x.name ,  cls.__admin.databases()))
         cls.__connection_details = {
-            'endpoint': "http://localhost:5820",
+            'endpoint': cls.__endpoint,
             'username': "admin",
             'password': "admin"
         }
@@ -31,7 +35,7 @@ class Stardog_TestCase(unittest.TestCase):
         self.__database_name = "stardog_test"
         self.__database = self.__admin.new_database(self.__database_name)
         self.__connection = stardog.Connection(self.__database_name, **self.__connection_details)
-        self.__triplestore: StardogStrategy = StardogStrategy(base_iri="http://localhost:5820", database=self.__database_name)
+        self.__triplestore: StardogStrategy = StardogStrategy(base_iri=self.__endpoint, database=self.__database_name)
         self.__existing_namespaces = self.__database.namespaces() # type: ignore
 
     @classmethod
@@ -76,8 +80,8 @@ class Stardog_TestCase(unittest.TestCase):
 
 
     def test_parse(self):
-        ontology_file_path_ttl = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.ttl"))
-        ontology_file_path_rdf = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.rdf"))
+        ontology_file_path_ttl = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + os.path.sep.join(["","ontologies","food.ttl"])))
+        ontology_file_path_rdf = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + os.path.sep.join(["","ontologies","food.rdf"])))
         
         self.parseTestSkeleton(input_format="turtle", input_type="source", ontology_file_path=ontology_file_path_ttl)
         self.parseTestSkeleton(input_format="turtle", input_type="location", ontology_file_path=ontology_file_path_ttl)
@@ -89,13 +93,13 @@ class Stardog_TestCase(unittest.TestCase):
 
 
     def test_serialize(self):
-        ontology_file_path = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\food.ttl"))
+        ontology_file_path = str(Path(str(Path(__file__).parent.parent.parent.resolve()) + os.path.sep.join(["","ontologies","food.ttl"])))
         self.__connection.begin()
         self.__connection.add(stardog.content.File(ontology_file_path))
         self.__connection.commit()
 
         db_content = self.__triplestore.serialize()
-        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\expected_ontology.ttl")), "r") as out_file:
+        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + os.path.sep.join(["","ontologies","expected_ontology.ttl"]))), "r") as out_file:
             expected_serialization = out_file.read()
         
         self.assertEqual(expected_serialization, db_content)
@@ -238,7 +242,7 @@ class Stardog_TestCase(unittest.TestCase):
 
         db_content = self.__connection.export(stardog.content_types.TURTLE).decode()  # type: ignore
 
-        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + "\\ontologies\\expected_ontology.ttl")), "r") as out_file:
+        with open(str(Path(str(Path(__file__).parent.parent.parent.resolve()) + os.path.sep.join(["","ontologies","expected_ontology.ttl"]))), "r") as out_file:
             expected_serialization = out_file.read()
 
         self.assertEqual(expected_serialization, db_content)

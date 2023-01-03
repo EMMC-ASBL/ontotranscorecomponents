@@ -1,6 +1,7 @@
 import os
 import io
 import stardog
+import app.ontotrans_api.handlers.triplestore_configuration as config
 from stardog import content_types
 from tripper import Literal
 from typing import TYPE_CHECKING
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
 class StardogStrategy(SparqlwrapperStrategy):
 
     ## Class attributes
-    __admin: stardog.Admin = stardog.Admin()
     __default_uname = "admin"
     __default_pwd = "admin"
     __serialization_format_supported = ["turtle", "rdf"]
@@ -37,6 +37,7 @@ class StardogStrategy(SparqlwrapperStrategy):
         self.__uname = self.__default_uname
         self.__pwd = self.__default_pwd
         self.__database_name = database
+        self.__admin = stardog.Admin(endpoint = base_iri)
         self.__database = self.__admin.database(database)
         self.__connection_details = {
             'endpoint': base_iri,
@@ -63,10 +64,12 @@ class StardogStrategy(SparqlwrapperStrategy):
 
     @classmethod
     def list_databases(cls, **kwargs):
+        __stardog_endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        __admin: stardog.Admin = stardog.Admin(endpoint=__stardog_endpoint)
         databases = []
 
         try:
-            databases = list(map(lambda x : x.name ,  cls.__admin.databases()))
+            databases = list(map(lambda x : x.name ,  __admin.databases()))
         except Exception as err:
             print("Exception occurred during databases listing: {}".format(err))
 
@@ -75,20 +78,26 @@ class StardogStrategy(SparqlwrapperStrategy):
 
     @classmethod
     def create_database(cls, database: str, **kwargs):
-        databases = list(map(lambda x : x.name ,cls.__admin.databases()))
+        __stardog_endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        __admin: stardog.Admin = stardog.Admin(endpoint=__stardog_endpoint)
+
+        databases = list(map(lambda x : x.name ,__admin.databases()))
         if not database in databases: 
-            cls.__admin.new_database(database)
+            __admin.new_database(database)
         else:
             print("Database {} already exists".format(database))
 
 
     @classmethod
     def remove_database(cls, database: str, **kwargs):
-        databases = list(map(lambda x : x.name , cls.__admin.databases()))
+        __stardog_endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        __admin: stardog.Admin = stardog.Admin(endpoint=__stardog_endpoint)
+
+        databases = list(map(lambda x : x.name , __admin.databases()))
         if not database in databases: 
             print("Database {} does not exists".format(database))
         else:
-            cls.__admin.database(database).drop()
+            __admin.database(database).drop()
 
 
     def triples(self, triple: "Triple") -> "Generator[Triple, None, None]":

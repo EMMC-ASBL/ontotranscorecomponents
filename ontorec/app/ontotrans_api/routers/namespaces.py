@@ -6,6 +6,7 @@
 import os
 import shutil
 import stardog # type: ignore
+import app.ontotrans_api.handlers.triplestore_configuration as config
 
 from typing import List, Optional, Union
 
@@ -16,7 +17,6 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 from app.backends.stardog import StardogStrategy
-from ..core import triplestore_host, triplestore_port, connection_details
 
 router = APIRouter(
     tags = ["Namespaces"]
@@ -43,7 +43,8 @@ async def get_namespaces(db_name: str):
     
     response = Namespaces()
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        print("[DEBUG] - Using URL {}".format("http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)))
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
         namespaces = [Namespace(prefix=prefix, iri=iri) for (prefix, iri) in namespaces_raw.items()]
@@ -70,7 +71,7 @@ async def get_base_namespace(db_name: str):
     response = Namespace()
     try:
         
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
         if "" in namespaces_raw:
@@ -97,7 +98,7 @@ async def get_namespace(db_name: str, namespace_name: str):
 
     response = Namespace()
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
         namespaces_raw = triplestore.namespaces()
         if namespace_name in namespaces_raw:
@@ -125,7 +126,7 @@ async def add_namespace(db_name: str, namespace: Namespace):
     real_prefix = "" if namespace.prefix == "base" else namespace.prefix
     real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         namespaces_raw = triplestore.namespaces()
 
         if real_namespace.prefix in namespaces_raw and real_namespace.iri != namespaces_raw[real_namespace.prefix]:
@@ -155,7 +156,7 @@ async def delete_namespace_byname(db_name: str):
     """
 
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         namespaces_raw = triplestore.namespaces()
 
         if "" in namespaces_raw:
@@ -178,7 +179,7 @@ async def delete_namespace(db_name: str, namespace_name: str):
     """
 
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(triplestore_host, triplestore_port), database=db_name)
+        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         namespaces_raw = triplestore.namespaces()
 
         if namespace_name in namespaces_raw:
