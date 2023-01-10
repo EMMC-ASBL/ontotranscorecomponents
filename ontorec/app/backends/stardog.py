@@ -2,10 +2,8 @@ import os
 import io
 import stardog
 import app.ontotrans_api.handlers.triplestore_configuration as config
-from stardog import content_types
 from tripper import Literal
 from typing import TYPE_CHECKING
-from tripper.backends.sparqlwrapper import SparqlwrapperStrategy
 from SPARQLWrapper import GET, JSON, POST, RDFXML, SPARQLWrapper
 
 if TYPE_CHECKING:
@@ -17,7 +15,7 @@ if TYPE_CHECKING:
 
 
 
-class StardogStrategy(SparqlwrapperStrategy):
+class StardogStrategy():
 
     ## Class attributes
     __default_uname = "admin"
@@ -33,6 +31,8 @@ class StardogStrategy(SparqlwrapperStrategy):
         "rdf": ".rdf"
     }
 
+    __sparql_endpoints = {}
+
     def __init__(self, base_iri: str, database: str, **kwargs) -> None:
         self.__uname = self.__default_uname
         self.__pwd = self.__default_pwd
@@ -47,14 +47,16 @@ class StardogStrategy(SparqlwrapperStrategy):
 
         ## Setting SPARQLWrapper system
         stardog_query_endpoint = "{}/{}/query".format(base_iri, database)
-        self.__sparql_query = SPARQLWrapper(endpoint=stardog_query_endpoint, **kwargs)
-        self.__sparql_query.setCredentials(self.__uname, self.__pwd)
+        __sparql_query = SPARQLWrapper(endpoint=stardog_query_endpoint, **kwargs)
+        __sparql_query.setCredentials(self.__uname, self.__pwd)
+        self.__sparql_endpoints["query"] = __sparql_query
 
         stardog_update_endpoint = "{}/{}/update".format(base_iri, database)
-        self.__sparql_update = SPARQLWrapper(endpoint=stardog_update_endpoint, **kwargs)
-        self.__sparql_update.setCredentials(self.__uname, self.__pwd)
+        __sparql_update = SPARQLWrapper(endpoint=stardog_update_endpoint, **kwargs)
+        __sparql_update.setCredentials(self.__uname, self.__pwd)
+        self.__sparql_endpoints["update"] = __sparql_update
 
-        self.sparql = self.__sparql_query
+        self.__set_sparql_endpoint("query")
 
         try:
             self.__connection = stardog.Connection(self.__database_name, **self.__connection_details)
@@ -102,14 +104,13 @@ class StardogStrategy(SparqlwrapperStrategy):
 
     def triples(self, triple: "Triple") -> "Generator[Triple, None, None]":
         self.__set_sparql_endpoint("query")
-        # return super().triples(triple)
 
         variables = [
             f"?{triple_name}"
             for triple_name, triple_value in zip("spo", triple)
             if triple_value is None
         ]
-        if len(variables) == 0: variables.append("*")
+        if not variables: variables.append("*")
         where_spec = " ".join(
             f"?{triple_name}"
             if triple_value is None
@@ -138,7 +139,6 @@ class StardogStrategy(SparqlwrapperStrategy):
 
     def add_triples(self, triples: "Sequence[Triple]") -> "QueryResult":
         self.__set_sparql_endpoint("update")
-        # return super().add_triples(triples)
         spec = "\n".join(
             "  "
             + " ".join(
@@ -161,7 +161,6 @@ class StardogStrategy(SparqlwrapperStrategy):
 
     def remove(self, triple: "Triple") -> "QueryResult":
         self.__set_sparql_endpoint("update")
-        # return super().remove(triple)
 
         spec = " ".join(
             f"?{name}"
@@ -280,10 +279,8 @@ class StardogStrategy(SparqlwrapperStrategy):
 
         print("Swapping active sparql endpoint to {}".format(type))
         
-        if type == "query":
-            self.sparql = self.__sparql_query
-        else:
-            self.sparql = self.__sparql_update
+        self.sparql = self.__sparql_endpoints[type]
+
 
     def __convert_json_entrydict(self, entrydict: "Dict[str, str]") -> str:  # type: ignore
         if entrydict["type"] == "uri":
