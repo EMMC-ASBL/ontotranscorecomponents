@@ -1,0 +1,28 @@
+{
+   "training_type": "SCENARIO",
+   "scenario": {
+      "country": "UNITED KINGDOM",
+      "brand": "ariel",
+      "jobs": 25
+   },
+   "reference_period": {
+      "from": "1900-01-01",
+      "to": "2100-01-01"
+   },
+   "results": {
+      "model_quality": 0.941813866096558,
+      "data_rows": 96,
+      "creation_date": "2023-03-01 20:59:57",
+      "model_inputs": {
+         "Price per 100 pods (0-1 USD)": {
+            "min": 0.36302738221273345,
+            "max": 0.7626839115158695
+         },
+         "Numerical distribution (0-1)": {
+            "min": 0.025080906148867314,
+            "max": 0.843042071197411
+         }
+      },
+      "model_id": "a40d7fa2-b86b-11ed-876d-acde48001123"
+   }
+}

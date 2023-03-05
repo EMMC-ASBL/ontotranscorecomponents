@@ -1,0 +1,31 @@
+{
+   "model_id": "00750fa6-b837-11ed-bcc2-406c8f2d6c76",
+   "model_inputs": {
+      "Price per 100 pods (0-1 USD)": [
+         0.55
+      ],
+      "Numerical distribution (0-1)": [
+         0.3
+      ]
+   },
+   "prediction": {
+      "predicted": [
+         0.06151362501348696
+      ],
+      "uncertainty_min": [
+         0.04760624492078259
+      ],
+      "uncertainty_max": [
+         0.07542100510619132
+      ],
+      "model_based_outlier": [
+         0.0
+      ],
+      "Price per 100 pods (0-1 USD)": [
+         0.55
+      ],
+      "Numerical distribution (0-1)": [
+         0.3
+      ]
+   }
+}
