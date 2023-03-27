@@ -16,7 +16,6 @@ from pydantic import BaseModel
 
 from tripper import Literal
 from tripper import Triplestore
-from app.backends.stardog import StardogStrategy
 from stardog.exceptions import StardogException # type: ignore
 
 
@@ -161,14 +160,14 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
     try:
 
-        current_databases = StardogStrategy.list_databases()
+        current_databases = Triplestore.list_databases("stardog")
         if not db_name in current_databases: #type:ignore
             Triplestore.create_database("stardog", db_name)
         else:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content="Database already exists")
 
         if initEmmo:
-            triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+            triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
             emmo_path = str(Path(str(Path(__file__).parent.parent.parent.parent.resolve()) + os.path.sep.join(["", "ontologies","full_ontology_inferred_remapped.rdf"])))
             triplestore.parse(location=emmo_path, format="rdf")
 

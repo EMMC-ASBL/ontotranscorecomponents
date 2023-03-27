@@ -16,7 +16,6 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
-from app.backends.stardog import StardogStrategy
 
 from tripper import Triplestore
 
