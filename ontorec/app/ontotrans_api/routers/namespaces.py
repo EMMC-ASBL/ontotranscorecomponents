@@ -18,6 +18,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app.backends.stardog import StardogStrategy
 
+from tripper import Triplestore
+
+
 router = APIRouter(
     tags = ["Namespaces"]
 )
@@ -44,9 +47,9 @@ async def get_namespaces(db_name: str):
     response = Namespaces()
     try:
         print("[DEBUG] - Using URL {}".format("http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)))
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
-        namespaces_raw = triplestore.namespaces()
+        namespaces_raw = triplestore.backend.namespaces()
         namespaces = [Namespace(prefix=prefix, iri=iri) for (prefix, iri) in namespaces_raw.items()]
        
         response = Namespaces(namespaces=namespaces)
@@ -71,9 +74,9 @@ async def get_base_namespace(db_name: str):
     response = Namespace()
     try:
         
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-
-        namespaces_raw = triplestore.namespaces()
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        
+        namespaces_raw = triplestore.backend.namespaces()
         if "" in namespaces_raw:
             response = Namespace(prefix="base", iri=namespaces_raw[""])
         else:
@@ -98,9 +101,9 @@ async def get_namespace(db_name: str, namespace_name: str):
 
     response = Namespace()
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
-        namespaces_raw = triplestore.namespaces()
+        namespaces_raw = triplestore.backend.namespaces()
         if namespace_name in namespaces_raw:
             response = Namespace(prefix=namespace_name, iri=namespaces_raw[""])
         else:
@@ -126,8 +129,8 @@ async def add_namespace(db_name: str, namespace: Namespace):
     real_prefix = "" if namespace.prefix == "base" else namespace.prefix
     real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-        namespaces_raw = triplestore.namespaces()
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
 
         if real_namespace.prefix in namespaces_raw and real_namespace.iri != namespaces_raw[real_namespace.prefix]:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": "Already existing namespace"})
@@ -156,11 +159,11 @@ async def delete_namespace_byname(db_name: str):
     """
 
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-        namespaces_raw = triplestore.namespaces()
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
 
         if "" in namespaces_raw:
-            triplestore.bind("", None) # type: ignore
+            triplestore.backend.bind("", None) # type: ignore
 
     except Exception as err:
         print("Exception occurred in /namespaces/base: {}".format(db_name,err))
@@ -179,8 +182,8 @@ async def delete_namespace(db_name: str, namespace_name: str):
     """
 
     try:
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-        namespaces_raw = triplestore.namespaces()
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
 
         if namespace_name in namespaces_raw:
             triplestore.bind(namespace_name, None) # type: ignore
