@@ -6,6 +6,7 @@
 import os
 import shutil
 import stardog # type: ignore
+import app.ontotrans_api.handlers.triplestore_configuration as config
 
 from typing import List, Optional, Union
 
@@ -16,10 +17,8 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel
 
+from tripper import Triplestore
 
-from stardog.exceptions import StardogException # type: ignore
-
-from ..core import connection_details
 
 router = APIRouter(
     tags = ["Namespaces"]
@@ -43,16 +42,16 @@ async def get_namespaces(db_name: str):
     """
         Retrieve the namespaces in a database
     """
-
-    namespaces = []
+    
     response = Namespaces()
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            namespaces = [Namespace(prefix=el["prefix"], iri=el["name"]) for el in database_instance.namespaces()]
-            
-        response.namespaces = namespaces
+        print("[DEBUG] - Using URL {}".format("http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)))
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
+        namespaces_raw = triplestore.backend.namespaces()
+        namespaces = [Namespace(prefix=prefix, iri=iri) for (prefix, iri) in namespaces_raw.items()]
+       
+        response = Namespaces(namespaces=namespaces)
     except Exception as err:
         print("Exception occurred in /namespaces: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
@@ -71,21 +70,22 @@ async def get_base_namespace(db_name: str):
         Retrieve the base namespace in a database
     """
 
-    namespace = {}
+    response = Namespace()
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            namespace_list = list(filter(lambda x: x["prefix"]=="", database_instance.namespaces()))
-            if len(namespace_list) > 0:
-                namespace = namespace_list[0]
-            else:
-                return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Base namespace does not exists"})
+        
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        
+        namespaces_raw = triplestore.backend.namespaces()
+        if "" in namespaces_raw:
+            response = Namespace(prefix="base", iri=namespaces_raw[""])
+        else:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Base namespace does not exists"})
     
     except Exception as err:
         print("Exception occurred in /namespaces/base: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
         
-    return Namespace(prefix=namespace["prefix"], iri=namespace["name"])
+    return response
 
 #
 # GET /databases/{db_name}/namespaces/{namespace_name}
@@ -98,21 +98,21 @@ async def get_namespace(db_name: str, namespace_name: str):
         Retrieve a namespace in a database
     """
 
-    namespace = {}
+    response = Namespace()
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            namespace_list = list(filter(lambda x: x["prefix"]==namespace_name, database_instance.namespaces()))
-            if len(namespace_list) > 0:
-                namespace = namespace_list[0]
-            else:
-                return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Namespace does not exists"})
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
 
+        namespaces_raw = triplestore.backend.namespaces()
+        if namespace_name in namespaces_raw:
+            response = Namespace(prefix=namespace_name, iri=namespaces_raw[""])
+        else:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Namespace {} does not exists".format(namespace_name)})
+    
     except Exception as err:
-        print("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
+        print("Exception occurred in /namespaces/base: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
-
-    return Namespace(prefix=namespace["prefix"], iri=namespace["name"])
+        
+    return response
 
 #
 # POST /databases/{db_name}/namespaces
@@ -125,22 +125,22 @@ async def add_namespace(db_name: str, namespace: Namespace):
         Add a new namespace in a database
     """
 
-    true_prefix = "" if namespace.prefix == "base" else namespace.prefix
-    true_namespace = Namespace(prefix=true_prefix, iri=namespace.iri)
+    real_prefix = "" if namespace.prefix == "base" else namespace.prefix
+    real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            matching_namespaces = list(filter(lambda x: x["prefix"]==true_namespace.prefix,database_instance.namespaces()))
-            if len(matching_namespaces)>0:
-                return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": "Already existing namespace"})
-            else:
-                database_instance.add_namespace(true_namespace.prefix, true_namespace.iri)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
+
+        if real_namespace.prefix in namespaces_raw and real_namespace.iri != namespaces_raw[real_namespace.prefix]:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": "Already existing namespace"})
+
+        triplestore.bind(real_namespace.prefix, real_namespace.iri)
 
     except Exception as err:
         print("Exception occurred in /namespaces: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="{}".format(err))
 
-    return true_namespace
+    return real_namespace
 
 #
 # DELETE /databases/{db_name}/namespaces/base
@@ -157,14 +157,12 @@ async def delete_namespace_byname(db_name: str):
         Delete namespace in a database
     """
 
-    namespace = {}
-    response = False
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            matching_namespaces = list(filter(lambda x: x["prefix"]=="",database_instance.namespaces()))
-            if len(matching_namespaces)>0:
-                database_instance.remove_namespace("")
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
+
+        if "" in namespaces_raw:
+            triplestore.backend.bind("", None) # type: ignore
 
     except Exception as err:
         print("Exception occurred in /namespaces/base: {}".format(db_name,err))
@@ -182,14 +180,12 @@ async def delete_namespace(db_name: str, namespace_name: str):
         Delete namespace in a database
     """
 
-    namespace = {}
-    response = False
     try:
-        with stardog.Admin(**connection_details) as admin:
-            database_instance = admin.database(db_name)
-            matching_namespaces = list(filter(lambda x: x["prefix"]==namespace_name,database_instance.namespaces()))
-            if len(matching_namespaces)>0:
-                database_instance.remove_namespace(namespace_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        namespaces_raw = triplestore.backend.namespaces()
+
+        if namespace_name in namespaces_raw:
+            triplestore.bind(namespace_name, None) # type: ignore
 
     except Exception as err:
         print("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
