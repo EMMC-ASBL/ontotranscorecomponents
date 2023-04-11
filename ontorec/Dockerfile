@@ -10,6 +10,9 @@ RUN mkdir /usr/share/man/man1/ \
     && apt update \
     && apt install openjdk-11-jdk -y
 
+# Set up GIT
+RUN apt-get -y install git
+
 # Set working directory
 WORKDIR /app
 
