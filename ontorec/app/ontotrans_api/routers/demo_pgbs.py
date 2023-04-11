@@ -15,9 +15,8 @@ from fastapi.responses import JSONResponse
 
 from pydantic import BaseModel, Field
 
-from tripper import Literal
+from tripper import Literal, Triplestore
 from tripper.namespace import XSD
-from app.backends.stardog import StardogStrategy
 from stardog.exceptions import StardogException # type: ignore
 
 from datetime import date, datetime
@@ -120,7 +119,7 @@ async def save_model_training(db_name: str, modelTraining: ModelTraining):
 
 
         # Save triples
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         SCHEMA = triplestore.bind("schema", "https://schema.org/")
         triplestore.add_triples(formatted_triples)
 
@@ -192,7 +191,7 @@ async def save_model_evaluation(db_name: str, modelEvalutaion: ModelEvaluation):
         formatted_triples.append((model_evaluation_uri, "<https://schema.org/prediction_numerical_distribution>", Literal(modelEvalutaion.prediction.num_dist[0], datatype="<http://www.w3.org/2001/XMLSchema#float>").n3())) # type: ignore
 
         # Save triples
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         SCHEMA = triplestore.bind("schema", "https://schema.org/")
         triplestore.add_triples(formatted_triples)
 
