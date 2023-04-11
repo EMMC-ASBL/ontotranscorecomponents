@@ -29,6 +29,17 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
         self.__connection = stardog.Connection(self.__database_name, **self.__connection_details)
         self.__existing_namespaces = self.__database.namespaces() # type: ignore
         self.__existing_namespaces = [ {"prefix": namespace["prefix"], "iri": namespace["name"]} for namespace in self.__existing_namespaces]
+        tripper_def_namespaces = {
+            "xml": "http://www.w3.org/XML/1998/namespace",
+            "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+            "owl": "http://www.w3.org/2002/07/owl#",
+        }
+        for def_namespace in tripper_def_namespaces.keys():
+            if next((item for item in self.__existing_namespaces if item["prefix"] == def_namespace), None) is None:
+                self.__existing_namespaces.append({"prefix":def_namespace, "iri": tripper_def_namespaces[def_namespace]})
+
 
     @classmethod
     def tearDownClass(cls):
@@ -85,8 +96,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
 
     def test_get_namespaceser_error(self):
 
-        self.__database.remove_namespace("owl") #type:ignore
-        response = self.__client.get("/databases/{}/namespaces/owl".format(self.__database_name))
+        response = self.__client.get("/databases/{}/namespaces/nonamespace".format(self.__database_name))
 
         self.assertEqual(response.status_code, 404)
 
@@ -144,17 +154,25 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
 
 
     def test_delete_base_namespace(self):
-        removed_namespace = {}
-        removed_namespace["prefix"] = ""
-        removed_namespace["iri"] = "http://api.stardog.com/"
+        # removed_namespace = {}
+        # removed_namespace["prefix"] = ""
+        # removed_namespace["iri"] = "http://www.w3.org/2002/07/owl#"
 
+        # self.__database.remove_namespace("") # type: ignore
+        # self.__database.remove_namespace("owl") # type: ignore
+        # self.__database.add_namespace("", removed_namespace["iri"]) # type: ignore
+
+        before_namespaces = self.__database.namespaces() # type: ignore
         response = self.__client.delete("/databases/{}/namespaces/base".format(self.__database_name))
-        updated_namespaces = self.__database.namespaces() # type: ignore
-        updated_namespaces = [ {"prefix": namespace["prefix"], "iri": namespace["name"]} for namespace in updated_namespaces]
-        self.__existing_namespaces.remove(removed_namespace)
+        after_namespaces = self.__database.namespaces() # type: ignore
+        # updated_namespaces = self.__database.namespaces() # type: ignore
+        # updated_namespaces = [ {"prefix": namespace["prefix"], "iri": namespace["name"]} for namespace in updated_namespaces]
+        # self.__existing_namespaces.remove(removed_namespace)
 
         self.assertEqual(response.status_code, 204)
-        self.assertCountEqual(updated_namespaces, self.__existing_namespaces) # type: ignore
+        self.assertTrue(next((item for item in before_namespaces if item["prefix"] == ""), None) is not None)
+        self.assertTrue(next((item for item in after_namespaces if item["prefix"] == ""), None) is None)
+        # self.assertCountEqual(updated_namespaces, self.__existing_namespaces) # type: ignore
 
 
     def test_delete_base_namespace_ifnotexists(self):

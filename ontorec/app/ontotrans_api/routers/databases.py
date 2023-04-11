@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from tripper import Literal
-from app.backends.stardog import StardogStrategy
+from tripper import Triplestore
 from stardog.exceptions import StardogException # type: ignore
 
 
@@ -24,6 +24,7 @@ N3Triple = Tuple[str, str, str]
 router = APIRouter(
     tags = ["Databases"]
 )
+
 
 #
 # GET /databases
@@ -42,7 +43,7 @@ async def get_databases():
     databases = []
 
     try:
-        databases = StardogStrategy.list_databases()
+        databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT))
 
     except Exception as err:
         print("Exception occurred in /databases: {}".format(err))
@@ -66,8 +67,8 @@ async def get_database_data(db_name: str):
     """
     triples = []
 
-    try:   
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+    try:
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         db_content = triplestore.triples((None, None, None)) # type: ignore
 
         for triple in db_content:
@@ -99,7 +100,7 @@ async def serialize_database(db_name:str, format: str = "turtle"):
 
     serialized_content = ""
     try:   
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         serialized_content = triplestore.serialize(format="turtle")
 
     except Exception as err:
@@ -125,8 +126,7 @@ async def execute_query(db_name: str, queryModel: QueryBody):
     """
 
     try:
-
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         results = triplestore.query(queryModel.query, reasoning=queryModel.reasoning)
 
         triples = []
@@ -160,14 +160,14 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
     try:
 
-        current_databases = StardogStrategy.list_databases()
+        current_databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT))
         if not db_name in current_databases: #type:ignore
-            StardogStrategy.create_database(db_name)
+            Triplestore.create_database("stardog", db_name, triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT))
         else:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content="Database already exists")
 
         if initEmmo:
-            triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+            triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
             emmo_path = str(Path(str(Path(__file__).parent.parent.parent.parent.resolve()) + os.path.sep.join(["", "ontologies","full_ontology_inferred_remapped.rdf"])))
             triplestore.parse(location=emmo_path, format="rdf")
 
@@ -198,8 +198,8 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
         if not extension in ["ttl"]:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Format {} not supported".format(extension))
         else:
-            triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-            triplestore.parse(data=content)
+            triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+            triplestore.parse(data=content, format="turtle")
     
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -229,8 +229,7 @@ async def add_triples_to_database(db_name: str, response: Response,  triples: Tr
     """
 
     try:
-
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         formatted_triples = []
         for triple in triples.triples:
             formatted_triples.append((triple.s, triple.p, triple.o))
@@ -254,8 +253,7 @@ async def delete_database(db_name: str):
        Delete a database
     """
     try:
-
-       StardogStrategy.remove_database(db_name)
+        Triplestore.remove_database("stardog",  db_name, triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT))
 
     except Exception as err:
         print("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -275,7 +273,7 @@ async def delete_database_triples(db_name: str,  triples: TripleList):
     """
     try:
 
-        triplestore = StardogStrategy(base_iri="http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
         for triple in triples.triples:
             formatted_triple = (triple.s, triple.p, triple.o)
             triplestore.remove(formatted_triple) #type:ignore
