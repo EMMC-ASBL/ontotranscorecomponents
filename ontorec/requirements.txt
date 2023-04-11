@@ -49,7 +49,7 @@ stevedore==3.3.0
 tenacity==7.0.0
 toml==0.10.2
 git+https://github.com/EMMC-ASBL/tripper@02cc7f8#tripper
-git+https://github.com/xAlessandroC/PyBackTrip@6a2ed3b#pybacktrip
+git+https://github.com/xAlessandroC/PyBackTrip@v1.0.0#pybacktrip
 types-aiofiles==0.7.0
 types-requests==2.25.9
 typing-extensions==3.10.0.0
