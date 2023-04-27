@@ -6,8 +6,6 @@
 import os
 import shutil
 import stardog # type: ignore
-import app.ontotrans_api.handlers.triplestore_configuration as config
-
 from typing import List, Optional, Union
 
 from fastapi.params import Body
@@ -19,10 +17,15 @@ from pydantic import BaseModel
 
 from tripper import Triplestore
 
+from app.config.triplestoreConfig import TriplestoreConfig
+from app.config.ontokbCredentials import OntoKBCredentials
 
 router = APIRouter(
     tags = ["Namespaces"]
 )
+
+triplestore_config = TriplestoreConfig()
+ontokbcredentials_config = OntoKBCredentials()
 
 #
 # GET /databases/{db_name}/namespaces
@@ -45,8 +48,8 @@ async def get_namespaces(db_name: str):
     
     response = Namespaces()
     try:
-        print("[DEBUG] - Using URL {}".format("http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)))
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        print("[DEBUG] - Using URL {}".format("http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT)))
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
 
         namespaces_raw = triplestore.backend.namespaces()
         namespaces = [Namespace(prefix=prefix, iri=iri) for (prefix, iri) in namespaces_raw.items()]
@@ -73,8 +76,9 @@ async def get_base_namespace(db_name: str):
     response = Namespace()
     try:
         
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
-        
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
+
+
         namespaces_raw = triplestore.backend.namespaces()
         if "" in namespaces_raw:
             response = Namespace(prefix="base", iri=namespaces_raw[""])
@@ -100,7 +104,7 @@ async def get_namespace(db_name: str, namespace_name: str):
 
     response = Namespace()
     try:
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
 
         namespaces_raw = triplestore.backend.namespaces()
         if namespace_name in namespaces_raw:
@@ -128,7 +132,7 @@ async def add_namespace(db_name: str, namespace: Namespace):
     real_prefix = "" if namespace.prefix == "base" else namespace.prefix
     real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
         namespaces_raw = triplestore.backend.namespaces()
 
         if real_namespace.prefix in namespaces_raw and real_namespace.iri != namespaces_raw[real_namespace.prefix]:
@@ -158,7 +162,7 @@ async def delete_namespace_byname(db_name: str):
     """
 
     try:
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
         namespaces_raw = triplestore.backend.namespaces()
 
         if "" in namespaces_raw:
@@ -181,7 +185,7 @@ async def delete_namespace(db_name: str, namespace_name: str):
     """
 
     try:
-        triplestore = Triplestore(backend=config.TRIPLESTORE_TYPE, base_iri="", triplestore_url = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT), database=db_name)
+        triplestore = Triplestore(backend=triplestore_config.ONTOKB_BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT), database=db_name, uname=ontokbcredentials_config.ONTOKB_USERNAME, pwd=ontokbcredentials_config.ONTOKB_PASSWORD)
         namespaces_raw = triplestore.backend.namespaces()
 
         if namespace_name in namespaces_raw:

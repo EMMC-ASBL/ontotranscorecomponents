@@ -1,8 +1,11 @@
 import app
 import unittest
 import stardog
-import app.ontotrans_api.handlers.triplestore_configuration as config
 from fastapi.testclient import TestClient
+
+from app.config.triplestoreConfig import TriplestoreConfig
+
+triplestore_config = TriplestoreConfig()
 
 
 class NamespacesAPIs_TestCase(unittest.TestCase):
@@ -11,8 +14,7 @@ class NamespacesAPIs_TestCase(unittest.TestCase):
     def setUpClass(cls):
 
         cls.__client = TestClient(app.create_app())
-        config.inject_configuration("localhost", "5820", "stardog")
-        endpoint = "http://{}:{}".format(config.TRIPLESTORE_HOST, config.TRIPLESTORE_PORT)
+        endpoint = "http://{}:{}".format(triplestore_config.ONTOKB_HOST, triplestore_config.ONTOKB_PORT)
         cls.__admin: stardog.Admin = stardog.Admin(endpoint = endpoint)
         cls.__existing_databases = list(map(lambda x : x.name ,  cls.__admin.databases()))
         cls.__connection_details = {

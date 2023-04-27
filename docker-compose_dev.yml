@@ -23,4 +23,6 @@ services:
       ONTOKB_BACKEND: stardog
       ONTOKB_HOST: ontokb
       ONTOKB_PORT: 5820
+      ONTOKB_USERNAME: peppo
+      ONTOKB_PASSWORD: admin
     
