@@ -18,4 +18,8 @@ services:
       ONTOKB_BACKEND: stardog
       ONTOKB_HOST: ontokb
       ONTOKB_PORT: 5820
+      ONTOKB_USERNAME: admin
+      ONTOKB_PASSWORD: admin
+      ONTOREC_LOG_LEVEL: INFO
+      ONTOREC_AUTHENTICATION_DEPENDENCIES: 
     

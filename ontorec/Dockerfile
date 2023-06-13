@@ -37,7 +37,7 @@ COPY . .
 # RUN pytest --cov app tests/
 
 # Run with reload option
-CMD hypercorn wsgi:app --bind 0.0.0.0:8080 --reload
+CMD hypercorn wsgi:app --bind 0.0.0.0:8080 --reload --log-level $ONTOREC_LOG_LEVEL
 EXPOSE 8080
 
 
@@ -46,5 +46,5 @@ FROM base as production
 COPY . .
 
 # Run app
-CMD hypercorn wsgi:app --bind 0.0.0.0:80
+CMD hypercorn wsgi:app --bind 0.0.0.0:80 --log-level $ONTOREC_LOG_LEVEL
 EXPOSE 80

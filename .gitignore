@@ -221,3 +221,6 @@ Thumbs.db
 ontorec/tmp/*
 /reasoner/files
 /reasoner/log
+
+
+*.bck
