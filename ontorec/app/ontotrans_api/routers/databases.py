@@ -4,7 +4,7 @@
 
 import os
 
-import logging
+from app.logger.logger import log
 from pathlib import Path
 from typing import List, Optional, Union, Tuple
 from fastapi import File, UploadFile, Response
@@ -19,7 +19,6 @@ from stardog.exceptions import StardogException # type: ignore
 
 from app.config.triplestoreConfig import TriplestoreConfig
 from app.config.ontokbCredentials import OntoKBCredentials
-from app.config.ontoRECSettings import OntoRECSetting
 from SPARQLWrapper.SPARQLExceptions import QueryBadFormed
 
 N3Triple = Tuple[str, str, str]
@@ -30,9 +29,6 @@ router = APIRouter(
 
 triplestore_config = TriplestoreConfig()
 ontokbcredentials_config = OntoKBCredentials()
-
-logger = logging.getLogger(__name__)
-logger.setLevel(OntoRECSetting().LOG_LEVEL)
 
 #
 # GET /databases
@@ -54,7 +50,7 @@ async def get_databases():
         databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
-        logger.info("Exception occurred in /databases: {}".format(err))
+        log.error("Exception occurred in /databases: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return Databases(dbs = databases)
@@ -84,10 +80,11 @@ async def get_database_data(db_name: str):
             triples.append(converted_triple)
 
     except StardogException as err:
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
     
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return OntologyData(triples = triples) # type: ignore
@@ -115,10 +112,11 @@ async def serialize_database(db_name:str, format: str = "turtle"):
         serialized_content = triplestore.serialize(format="turtle")
 
     except StardogException as err:
+        log.error("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}/serialization: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return SerializedContent(content=serialized_content)
@@ -151,18 +149,21 @@ async def execute_query(db_name: str, queryModel: QueryBody):
             triples.append(converted_tuple)
 
     except QueryBadFormed as err:
+        log.error("Exception occurred in /databases/{}/query: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Triple bad formatted")
 
     except StardogException as err:
         if err.stardog_code == "0D0DU2":
+            log.error("Exception occurred in /databases/{}/query: {}".format(db_name,err))
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
         
         elif err.stardog_code == "QE0PE2":
+            log.error("Exception occurred in /databases/{}/query: {}".format(db_name,err))
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bad query")
 
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return triples # type: ignore
@@ -197,7 +198,7 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
             triplestore.parse(location=emmo_path, format="rdf")
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}/create: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Database created")
@@ -227,10 +228,11 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
             triplestore.parse(data=content, format="turtle")
     
     except StardogException as err:
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return OntologyPostResponse(filename=ontology.filename)
@@ -265,13 +267,15 @@ async def add_triples_to_database(db_name: str, response: Response,  triples: Tr
         triplestore.add_triples(formatted_triples)
 
     except QueryBadFormed as err:
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Triple bad formatted")
     
     except StardogException as err:
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
     
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Triples added successfully")
@@ -290,7 +294,7 @@ async def delete_database(db_name: str):
         Triplestore.remove_database("stardog",  db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Database deleted")
@@ -313,13 +317,15 @@ async def delete_database_triples(db_name: str,  triples: TripleList):
             triplestore.remove(formatted_triple) #type:ignore
 
     except QueryBadFormed as err:
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Triple bad formatted")
     
     except StardogException as err:
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /databases/{}: {}".format(db_name,err))
+        log.error("Exception occurred in /databases/{}/single: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return DatabaseGenericResponse(response="Triples deleted successfully")

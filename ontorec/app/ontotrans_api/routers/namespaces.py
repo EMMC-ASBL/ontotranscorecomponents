@@ -3,7 +3,7 @@
     It is an extension of the databases route
 """
 
-import logging
+from app.logger.logger import log
 from typing import List
 
 from fastapi import APIRouter, HTTPException, status
@@ -17,7 +17,6 @@ from tripper import Triplestore
 
 from app.config.triplestoreConfig import TriplestoreConfig
 from app.config.ontokbCredentials import OntoKBCredentials
-from app.config.ontoRECSettings import OntoRECSetting 
 
 
 router = APIRouter(
@@ -26,9 +25,6 @@ router = APIRouter(
 
 triplestore_config = TriplestoreConfig()
 ontokbcredentials_config = OntoKBCredentials()
-
-logger = logging.getLogger(__name__)
-logger.setLevel(OntoRECSetting().LOG_LEVEL)
 
 #
 # GET /databases/{db_name}/namespaces
@@ -51,7 +47,7 @@ async def get_namespaces(db_name: str):
     
     response = Namespaces()
     try:
-        logger.info("[DEBUG] - Using URL {}".format("http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT)))
+        log.info("[DEBUG] - Using URL {}".format("http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT)))
         triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
         namespaces_raw = triplestore.backend.namespaces()
@@ -60,10 +56,11 @@ async def get_namespaces(db_name: str):
         response = Namespaces(namespaces=namespaces)
 
     except StardogException as err:
+        log.error("Exception occurred in /namespaces: {}".format(err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /namespaces: {}".format(err))
+        log.error("Exception occurred in /namespaces: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
 
     return response
@@ -93,10 +90,11 @@ async def get_base_namespace(db_name: str):
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Base namespace does not exists"})
         
     except StardogException as err:
+        log.error("Exception occurred in /namespaces/base: {}".format(err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
     
     except Exception as err:
-        logger.info("Exception occurred in /namespaces/base: {}".format(err))
+        log.error("Exception occurred in /namespaces/base: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
         
     return response
@@ -123,10 +121,11 @@ async def get_namespace(db_name: str, namespace_name: str):
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Namespace {} does not exists".format(namespace_name)})
         
     except StardogException as err:
+        log.error("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
     
     except Exception as err:
-        logger.info("Exception occurred in /namespaces/base: {}".format(err))
+        log.error("Exception occurred in /namespaces/{}: {}".format(namespace_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cannot connect to Stardog instance")
         
     return response
@@ -154,10 +153,11 @@ async def add_namespace(db_name: str, namespace: Namespace):
         triplestore.bind(real_namespace.prefix, real_namespace.iri)
 
     except StardogException as err:
+        log.error("Exception occurred in /namespaces: {}".format(err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /namespaces: {}".format(db_name,err))
+        log.error("Exception occurred in /namespaces: {}".format(err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="{}".format(err))
 
     return real_namespace
@@ -185,10 +185,11 @@ async def delete_namespace_byname(db_name: str):
             triplestore.backend.bind("", None) # type: ignore
 
     except StardogException as err:
+        log.error("Exception occurred in /namespaces/base: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /namespaces/base: {}".format(db_name,err))
+        log.error("Exception occurred in /namespaces/base: {}".format(db_name,err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="{}".format(err))
 
 #
@@ -211,8 +212,9 @@ async def delete_namespace(db_name: str, namespace_name: str):
             triplestore.bind(namespace_name, None) # type: ignore
 
     except StardogException as err:
+        log.error("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database does not exist")
 
     except Exception as err:
-        logger.info("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
+        log.error("Exception occurred in /namespaces/{}: {}".format(namespace_name, err))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="{}".format(err))
