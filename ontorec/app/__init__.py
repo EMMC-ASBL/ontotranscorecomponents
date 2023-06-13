@@ -1,7 +1,8 @@
 """
 app init
 """
-import logging
+
+from app.logger.logger import log
 from importlib import import_module
 from fastapi import FastAPI, Depends
 from app.ontotrans_api import core
@@ -20,10 +21,6 @@ __prefix__: str = "/ontorec/api/v{}".format(__version__.split('.', maxsplit=1)[0
 app_settings = OntoRECSetting()
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(app_settings.LOG_LEVEL)
-
-
 
 def get_auth_deps() -> "List[Depends]": #type: ignore
 
@@ -35,11 +32,11 @@ def get_auth_deps() -> "List[Depends]": #type: ignore
         imports = [
             getattr(import_module(module), classname) for (module, classname) in modules
         ]
-        logger.info("Imported the following dependencies for authentication: %s", imports)
+        log.info("Imported the following dependencies for authentication: %s", imports)
         dependencies = [Depends(dependency) for dependency in imports]
     else:
         dependencies = []
-        logger.info("No dependencies for authentication assigned.")
+        log.info("No dependencies for authentication assigned.")
 
     return dependencies
 
@@ -48,7 +45,10 @@ def create_app():
     """
     Create the FastAPI app
     """
-    logger.info("TEST INFO")
+    log.info("TEST INFO")
+    log.debug("TEST DEBUG")
+    log.warning("TEST WARNING")
+    log.error("TEST ERROR")
     app = FastAPI(dependencies=get_auth_deps())
     app.include_router(core.router, prefix = __prefix__)
     app.include_router(databases.router, prefix = __prefix__)
