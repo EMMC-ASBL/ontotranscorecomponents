@@ -21,6 +21,8 @@ from app.config.triplestoreConfig import TriplestoreConfig
 from app.config.ontokbCredentials import OntoKBCredentials
 from SPARQLWrapper.SPARQLExceptions import QueryBadFormed
 
+from app.ontotrans_api.triplestore_instances import triplestore_insts as triplestore_instances
+
 N3Triple = Tuple[str, str, str]
 
 router = APIRouter(
@@ -29,6 +31,16 @@ router = APIRouter(
 
 triplestore_config = TriplestoreConfig()
 ontokbcredentials_config = OntoKBCredentials()
+
+
+def __get_triplestore_instance(db_name: str):
+    if triplestore_instances.get_instance(db_name) is None:
+        log.info("Creating new triplestore instance for database {}".format(db_name))
+        triplestore = Triplestore(backend=triplestore_config.BACKEND, database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore_instances.add_instance(db_name, triplestore)
+   
+    return triplestore_instances.get_instance(db_name)
+
 
 #
 # GET /databases
@@ -47,7 +59,7 @@ async def get_databases():
     databases = []
 
     try:
-        databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        databases = Triplestore.list_databases(backend=triplestore_config.BACKEND, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
         log.error("Exception occurred in /databases: {}".format(err))
@@ -72,7 +84,7 @@ async def get_database_data(db_name: str):
     triples = []
 
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
         db_content = triplestore.triples((None, None, None)) # type: ignore
 
         for triple in db_content:
@@ -107,8 +119,8 @@ async def serialize_database(db_name:str, format: str = "turtle"):
         return JSONResponse(status_code=status.HTTP_406_NOT_ACCEPTABLE, content={"detail": "{} format not supported".format(format)})
 
     serialized_content = ""
-    try:   
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+    try:
+        triplestore = __get_triplestore_instance(db_name)   
         serialized_content = triplestore.serialize(format="turtle")
 
     except StardogException as err:
@@ -138,7 +150,7 @@ async def execute_query(db_name: str, queryModel: QueryBody):
     """
 
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore =  triplestore = __get_triplestore_instance(db_name)
         results = triplestore.query(queryModel.query, reasoning=queryModel.reasoning)
 
         triples = []
@@ -186,14 +198,14 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
     try:
 
-        current_databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        current_databases = Triplestore.list_databases(backend=triplestore_config.BACKEND, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
         if not db_name in current_databases: #type:ignore
-            Triplestore.create_database("stardog", db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+            Triplestore.create_database(backend=triplestore_config.BACKEND, database = db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
         else:
             return DatabaseGenericResponse(response="Database created")
 
         if initEmmo:
-            triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+            triplestore =  triplestore = __get_triplestore_instance(db_name)
             emmo_path = str(Path(str(Path(__file__).parent.parent.parent.parent.resolve()) + os.path.sep.join(["", "ontologies","full_ontology_inferred_remapped.rdf"])))
             triplestore.parse(location=emmo_path, format="rdf")
 
@@ -224,7 +236,7 @@ async def add_data_to_database(db_name: str, response: Response,  ontology: Uplo
         if not extension in ["ttl"]:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Format {} not supported".format(extension))
         else:
-            triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+            triplestore = __get_triplestore_instance(db_name)
             triplestore.parse(data=content, format="turtle")
     
     except StardogException as err:
@@ -259,7 +271,7 @@ async def add_triples_to_database(db_name: str, response: Response,  triples: Tr
     """
 
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore =  triplestore = __get_triplestore_instance(db_name)
         formatted_triples = []
         for triple in triples.triples:
             formatted_triples.append((triple.s, triple.p, triple.o))
@@ -291,7 +303,7 @@ async def delete_database(db_name: str):
        Delete a database
     """
     try:
-        Triplestore.remove_database("stardog",  db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        Triplestore.remove_database(backend=triplestore_config.BACKEND,  database = db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
         log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -311,7 +323,7 @@ async def delete_database_triples(db_name: str,  triples: TripleList):
     """
     try:
 
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore =  triplestore = __get_triplestore_instance(db_name)
         for triple in triples.triples:
             formatted_triple = (triple.s, triple.p, triple.o)
             triplestore.remove(formatted_triple) #type:ignore

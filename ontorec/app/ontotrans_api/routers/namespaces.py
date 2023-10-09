@@ -18,6 +18,9 @@ from tripper import Triplestore
 from app.config.triplestoreConfig import TriplestoreConfig
 from app.config.ontokbCredentials import OntoKBCredentials
 
+from app.ontotrans_api.triplestore_instances import triplestore_insts as triplestore_instances
+
+
 
 router = APIRouter(
     tags = ["Namespaces"]
@@ -25,6 +28,15 @@ router = APIRouter(
 
 triplestore_config = TriplestoreConfig()
 ontokbcredentials_config = OntoKBCredentials()
+
+
+def __get_triplestore_instance(db_name: str):
+    if triplestore_instances.get_instance(db_name) is None:
+        log.info("Creating new triplestore instance for database {}".format(db_name))
+        triplestore = Triplestore(backend=triplestore_config.BACKEND, database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore_instances.add_instance(db_name, triplestore)
+   
+    return triplestore_instances.get_instance(db_name)
 
 #
 # GET /databases/{db_name}/namespaces
@@ -48,7 +60,7 @@ async def get_namespaces(db_name: str):
     response = Namespaces()
     try:
         log.info("[DEBUG] - Using URL {}".format("http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT)))
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
 
         namespaces_raw = triplestore.backend.namespaces()
         namespaces = [Namespace(prefix=prefix, iri=iri) for (prefix, iri) in namespaces_raw.items()]
@@ -80,7 +92,7 @@ async def get_base_namespace(db_name: str):
     response = Namespace()
     try:
         
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
 
 
         namespaces_raw = triplestore.backend.namespaces()
@@ -112,7 +124,7 @@ async def get_namespace(db_name: str, namespace_name: str):
 
     response = Namespace()
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
 
         namespaces_raw = triplestore.backend.namespaces()
         if namespace_name in namespaces_raw:
@@ -144,7 +156,7 @@ async def add_namespace(db_name: str, namespace: Namespace):
     real_prefix = "" if namespace.prefix == "base" else namespace.prefix
     real_namespace = Namespace(prefix=real_prefix, iri=namespace.iri)
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
         namespaces_raw = triplestore.backend.namespaces()
 
         if real_namespace.prefix in namespaces_raw and real_namespace.iri != namespaces_raw[real_namespace.prefix]:
@@ -178,7 +190,7 @@ async def delete_namespace_byname(db_name: str):
     """
 
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
         namespaces_raw = triplestore.backend.namespaces()
 
         if "" in namespaces_raw:
@@ -205,7 +217,7 @@ async def delete_namespace(db_name: str, namespace_name: str):
     """
 
     try:
-        triplestore = Triplestore(backend=triplestore_config.BACKEND, base_iri="", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), database=db_name, uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        triplestore = __get_triplestore_instance(db_name)
         namespaces_raw = triplestore.backend.namespaces()
 
         if namespace_name in namespaces_raw:

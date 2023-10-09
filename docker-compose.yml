@@ -15,7 +15,7 @@ services:
     ports:
       - "80:80"
     environment:
-      ONTOKB_BACKEND: stardog
+      ONTOKB_BACKEND: rdflib
       ONTOKB_HOST: ontokb
       ONTOKB_PORT: 5820
       ONTOKB_USERNAME: admin
