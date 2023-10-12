@@ -1,0 +1,28 @@
+services:
+  ontokb:
+    image: "khaller/graphdb-free"
+    container_name: graphdb-service
+    ports:
+      - "7200:7200"
+
+  ontorec:
+    image: "ontotrans/ontorec-development"
+    build:
+      context: "./ontorec"
+      target: "${ONTOREC_TARGET:-development}"
+    volumes:
+      - ${ONTOREC_APP_PATH}:/app
+    container_name: ontorec-service
+    depends_on:
+      - ontokb
+    ports:
+      - "8080:8080"
+    environment:
+      ONTOKB_BACKEND: graphdb
+      ONTOKB_HOST: ontokb
+      ONTOKB_PORT: 7200
+      ONTOKB_USERNAME: admin
+      ONTOKB_PASSWORD: admin
+      ONTOREC_LOG_LEVEL: INFO
+      ONTOREC_AUTHENTICATION_DEPENDENCIES: 
+    

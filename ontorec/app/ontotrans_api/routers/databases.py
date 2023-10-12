@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from tripper import Literal
 from tripper import Triplestore
 from stardog.exceptions import StardogException # type: ignore
+from rdflib import Literal as RDFLiteral
 
 from app.config.triplestoreConfig import TriplestoreConfig
 from app.config.ontokbCredentials import OntoKBCredentials
@@ -47,7 +48,7 @@ async def get_databases():
     databases = []
 
     try:
-        databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        databases = Triplestore.list_databases(backend=triplestore_config.BACKEND, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
         log.error("Exception occurred in /databases: {}".format(err))
@@ -186,9 +187,10 @@ async def create_database(db_name: str, initEmmo: Optional[bool] = True):
 
     try:
 
-        current_databases = Triplestore.list_databases("stardog", triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        current_databases = Triplestore.list_databases(backend=triplestore_config.BACKEND, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
         if not db_name in current_databases: #type:ignore
-            Triplestore.create_database("stardog", db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+            print("http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT))
+            Triplestore.create_database(backend=triplestore_config.BACKEND, database = db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
         else:
             return DatabaseGenericResponse(response="Database created")
 
@@ -291,7 +293,7 @@ async def delete_database(db_name: str):
        Delete a database
     """
     try:
-        Triplestore.remove_database("stardog",  db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
+        Triplestore.remove_database(backend=triplestore_config.BACKEND,  database = db_name, triplestore_url = "http://{}:{}".format(triplestore_config.HOST, triplestore_config.PORT), uname=ontokbcredentials_config.USERNAME, pwd=ontokbcredentials_config.PASSWORD)
 
     except Exception as err:
         log.error("Exception occurred in /databases/{}: {}".format(db_name,err))
@@ -333,7 +335,7 @@ async def delete_database_triples(db_name: str,  triples: TripleList):
 
 ## Utils
 def convert_value_to_N3(value):
-    new_value = value.n3() if isinstance(value, Literal) else value if value.startswith("<") or value.startswith("_:") else "<{}>".format(value)  
+    new_value = value if isinstance(value, (Literal, RDFLiteral)) else value if value.startswith("<") or value.startswith("_:") else "<{}>".format(value)  
 
     return new_value
 
