@@ -7,16 +7,11 @@ services:
 
   ontorec:
     image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec:graphdb"
-    build:
-      context: "./ontorec"
-      target: "${ONTOREC_TARGET:-development}"
-    volumes:
-      - ${ONTOREC_APP_PATH}:/app
     container_name: ontorec-service
     depends_on:
       - ontokb
     ports:
-      - "8080:8080"
+      - "80:80"
     environment:
       ONTOKB_BACKEND: graphdb
       ONTOKB_HOST: ontokb
