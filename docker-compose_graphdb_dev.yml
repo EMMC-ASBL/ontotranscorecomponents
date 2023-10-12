@@ -6,7 +6,7 @@ services:
       - "7200:7200"
 
   ontorec:
-    image: "ontotrans/ontorec-development"
+    image: "registry.gitlab.cc-asp.fraunhofer.de/ontotrans/ontotranscorecomponents/ontorec:graphdb"
     build:
       context: "./ontorec"
       target: "${ONTOREC_TARGET:-development}"
